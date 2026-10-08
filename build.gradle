@@ -31,7 +31,9 @@ repositories {
 }
 
 base {
-    archivesName = mod_id
+    // Jar name carries the Minecraft version so multi-version releases are distinguishable,
+    // e.g. siasworkshop-1.21.1-1.0.0.jar (see mdocs wiki setup/multi-version-release-notes).
+    archivesName = "${mod_id}-${minecraft_version}"
 }
 
 // Mojang ships Java 21 to end users in 1.21.1, so mods should target Java 21.
