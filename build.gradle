@@ -41,11 +41,17 @@ base {
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
 legacyForge {
-    // NeoForge 1.20.1 keeps Forge-compatible coordinates (net.neoforged:forge).
+    // NeoForge 1.20.1 kept Forge-compatible coordinates (net.neoforged:forge).
     // neoForgeVersion (not version =) makes the legacy plugin resolve the neoforged group;
-    // plain version = would target MinecraftForge instead.
-    enable {
-        neoForgeVersion = project.neo_version
+    // plain version = targets MinecraftForge instead.
+    // -Puse_minecraftforge builds against MinecraftForge (net.minecraftforge group) to verify
+    // the mod against the other half of the 47.1-compatible line; the published reobf jar is the same.
+    if (project.hasProperty('use_minecraftforge')) {
+        version = project.findProperty('minecraftforge_version') ?: project.neo_version
+    } else {
+        enable {
+            neoForgeVersion = project.neo_version
+        }
     }
 
     parchment {
