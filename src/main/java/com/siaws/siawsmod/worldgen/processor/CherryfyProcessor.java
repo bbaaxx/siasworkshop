@@ -60,11 +60,22 @@ public class CherryfyProcessor extends StructureProcessor {
         if (this.accents.isEmpty()) throw new IllegalArgumentException("cherryfy processor needs at least one accent");
     }
 
+    /** True only on a thread currently placing a block-ordered cherry village (see VillagePlacer). */
+    private static final ThreadLocal<Boolean> FORCED = ThreadLocal.withInitial(() -> false);
+
+    public static void force(boolean enabled) {
+        FORCED.set(enabled);
+    }
+
+    private static boolean enabled() {
+        return FORCED.get() || Config.CHERRYFY_VILLAGES.getAsBoolean();
+    }
+
     @Override
     public StructureBlockInfo processBlock(LevelReader level, BlockPos pos, BlockPos pivotPos,
             StructureBlockInfo localBlockInfo, StructureBlockInfo worldBlockInfo, StructurePlaceSettings settings) {
         BlockState state = worldBlockInfo.state();
-        if (!Config.CHERRYFY_VILLAGES.getAsBoolean()) return worldBlockInfo;
+        if (!enabled()) return worldBlockInfo;
         Family family = WoodFamily.byBlock(state.getBlock());
         if (family == null) return worldBlockInfo;
 

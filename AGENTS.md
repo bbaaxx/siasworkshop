@@ -38,6 +38,7 @@ run/                         Dev runtime dir (gitignored)
 
 - All registrations live in `init/` holders via `DeferredRegister`; the entrypoint only wires them to the mod event bus.
 - Vanilla datapack overrides live in `src/main/resources/data/minecraft/` (tags, template pools) and must stay byte-identical to vanilla except the intended change; worldgen behavior changes are gated via `config/Config.java`.
+- GUI pattern (see `content/village/`): `MenuType` via `IMenuTypeExtension.create` + BlockEntity `MenuProvider`, open with `player.openMenu(be, pos)`; screen buttons go through `handleInventoryButtonClick`/`clickMenuButton` (no custom packets); state sync via `ContainerData`; screens registered in NeoForge's `RegisterMenuScreensEvent` (`MenuScreens.register` is private in 1.21.1).
 - Content assets (blockstates, models, loot tables, tags, recipes) come from datagen (`runData`) wherever possible; only textures/sounds are hand-written under `src/main/resources/assets/siasworkshop/`.
 - Language keys are prefixed `siasworkshop.`; see `assets/siasworkshop/lang/en_us.json`.
 - Placeholder art currently borrows vanilla textures (iron block, apple) — replace when real textures arrive.

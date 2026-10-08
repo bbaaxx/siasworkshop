@@ -5,9 +5,12 @@ import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 import com.siaws.siawsmod.config.Config;
 import com.siaws.siawsmod.data.ModDataGenerators;
+import com.siaws.siawsmod.init.SiasWorkshopBlockEntities;
 import com.siaws.siawsmod.init.SiasWorkshopBlocks;
 import com.siaws.siawsmod.init.SiasWorkshopCreativeTabs;
+import com.siaws.siawsmod.init.SiasWorkshopDataComponents;
 import com.siaws.siawsmod.init.SiasWorkshopItems;
+import com.siaws.siawsmod.init.SiasWorkshopMenus;
 import com.siaws.siawsmod.init.SiasWorkshopStructureProcessors;
 
 import net.neoforged.bus.api.IEventBus;
@@ -25,6 +28,9 @@ public class SiasWorkshop {
         SiasWorkshopItems.ITEMS.register(modEventBus);
         SiasWorkshopCreativeTabs.CREATIVE_MODE_TABS.register(modEventBus);
         SiasWorkshopStructureProcessors.STRUCTURE_PROCESSORS.register(modEventBus);
+        SiasWorkshopDataComponents.DATA_COMPONENT_TYPES.register(modEventBus);
+        SiasWorkshopBlockEntities.BLOCK_ENTITY_TYPES.register(modEventBus);
+        SiasWorkshopMenus.MENUS.register(modEventBus);
 
         modEventBus.addListener(SiasWorkshopCreativeTabs::addCreative);
         modEventBus.addListener(ModDataGenerators::gatherData);

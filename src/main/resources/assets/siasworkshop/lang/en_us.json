@@ -3,6 +3,24 @@
   "block.siasworkshop.example_block": "Example Block",
   "item.siasworkshop.example_item": "Example Item",
 
+  "item.siasworkshop.wilderness_compass": "Wilderness Compass",
+  "item.siasworkshop.wilderness_compass.scanned": "Nearest village %s blocks away — compass points away from it",
+  "item.siasworkshop.wilderness_compass.no_village": "No village within %s blocks — clear to build here",
+  "item.siasworkshop.wilderness_compass.clear": "this spot is clear to build a village",
+  "item.siasworkshop.wilderness_compass.near": "too close to build here (need %s blocks of separation)",
+  "item.siasworkshop.wilderness_compass.tracking": "Tracking village at %s, %s — needle points away",
+
+  "block.siasworkshop.village_foundation": "Village Foundation",
+  "block.siasworkshop.village_foundation.success": "Village created",
+  "block.siasworkshop.village_foundation.too_close": "Too close to an existing village (minimum separation is %s blocks)",
+  "block.siasworkshop.village_foundation.failed": "Could not generate a village here",
+  "block.siasworkshop.village_foundation.already": "A village was already created by this foundation",
+
+  "gui.siasworkshop.village_foundation.flavor": "Flavor: %s",
+  "gui.siasworkshop.village_foundation.flavor.cherry": "Cherry Blossom",
+  "gui.siasworkshop.village_foundation.flavor.vanilla": "Vanilla",
+  "gui.siasworkshop.village_foundation.create": "Create Village",
+
   "siasworkshop.configuration.title": "Sia's Workshop Configs",
   "siasworkshop.configuration.section.siasworkshop.server.toml": "Sia's Workshop Configs",
   "siasworkshop.configuration.section.siasworkshop.server.toml.title": "Sia's Workshop Configs",

@@ -25,6 +25,8 @@ public final class SiasWorkshopCreativeTabs {
                     .displayItems((parameters, output) -> {
                         output.accept(SiasWorkshopItems.EXAMPLE_ITEM.get());
                         output.accept(SiasWorkshopItems.EXAMPLE_BLOCK_ITEM.get());
+                        output.accept(SiasWorkshopItems.WILDERNESS_COMPASS.get());
+                        output.accept(SiasWorkshopItems.VILLAGE_FOUNDATION_ITEM.get());
                     })
                     .build());
 
