@@ -64,6 +64,7 @@ From APIs we verified against 21.1.256 sources this session:
 - **Good news**: `CompassItemPropertyFunction.CompassTarget` exists in 1.20.1 — the mirror-target away-compass ports as-is (`GlobalPos.of(...)`, private ctor). Structure lookup (`findNearestMapStructure`), `StructureTags.VILLAGE`, `setStartForStructure`, template pools/processor JSON all unchanged.
 - **Structure code deltas**: `Structure.generate(...)` in 1.20.1 takes the `StructureTemplateManager` + `LevelHeightAccessor` (from `ServerLevel.getStructureManager()` / the level) and has no trailing biome predicate the way 21.1 does — re-verify call shape against the 1.20.1 sources. `StructureProcessorType` is `Codec`-based (not `MapCodec`): `type() { return () -> CODEC.codec(); }`.
 - **Datagen on 47.1**: providers live at `net.minecraftforge.client.model.generators.*`/`net.minecraftforge.data.event.GatherDataEvent`; loot outputs to `data/<mod>/loot_tables/blocks/` (plural — 1.21 uses singular `loot_table/`). `BlockEntity` NBT: `saveAdditional(CompoundTag)` / `load(CompoundTag)` — no `HolderLookup.Provider`.
+- **`pack.mcmeta` is required on 1.20.1** (pack_format 15): without it the dev run shows "failed to load a valid ResourcePackInfo" for `build/classes/java/main` and the mod's client resources don't load. The 1.21 template doesn't ship one because 1.20.2+ dropped the requirement — the 1.20.1 branch adds `src/main/resources/pack.mcmeta`.
 
 ## Referenced By
 
