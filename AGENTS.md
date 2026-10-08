@@ -41,7 +41,7 @@ run/                         Dev runtime dir (gitignored)
 - GUI pattern (see `content/village/`): `MenuType` via `IMenuTypeExtension.create` + BlockEntity `MenuProvider`, open with `player.openMenu(be, pos)`; screen buttons go through `handleInventoryButtonClick`/`clickMenuButton` (no custom packets); state sync via `ContainerData`; screens registered in NeoForge's `RegisterMenuScreensEvent` (`MenuScreens.register` is private in 1.21.1).
 - Content assets (blockstates, models, loot tables, tags, recipes) come from datagen (`runData`) wherever possible; only textures/sounds are hand-written under `src/main/resources/assets/siasworkshop/`.
 - Language keys are prefixed `siasworkshop.`; see `assets/siasworkshop/lang/en_us.json`.
-- Placeholder art currently borrows vanilla textures (iron block, apple) — replace when real textures arrive.
+- Textures live under `src/main/resources/assets/siasworkshop/textures/`; current art is generated stubs from `tools/gen_stub_textures.py` — final art per `docs/art/texture-specs.md` replaces them file-for-file (names must match).
 - Mod metadata (id, version, license, name) is driven by `gradle.properties` and expanded into `neoforge.mods.toml` at build time — edit properties, not the TOML.
 
 ## References

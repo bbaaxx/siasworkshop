@@ -14,11 +14,7 @@ public class ModBlockStateProvider extends BlockStateProvider {
 
     @Override
     protected void registerStatesAndModels() {
-        // Placeholder art borrows the vanilla iron block texture until custom textures exist
-        simpleBlockWithItem(SiasWorkshopBlocks.EXAMPLE_BLOCK.get(),
-                models().cubeAll("example_block", mcLoc("block/iron_block")));
-        // Placeholder art borrows the vanilla cherry planks texture until custom textures exist
         simpleBlockWithItem(SiasWorkshopBlocks.VILLAGE_FOUNDATION.get(),
-                models().cubeAll("village_foundation", mcLoc("block/cherry_planks")));
+                models().cubeAll("village_foundation", modLoc("block/village_foundation")));
     }
 }

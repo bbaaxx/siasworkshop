@@ -17,7 +17,6 @@ public class ModBlockLootTables extends BlockLootSubProvider {
 
     @Override
     protected void generate() {
-        dropSelf(SiasWorkshopBlocks.EXAMPLE_BLOCK.get());
         dropSelf(SiasWorkshopBlocks.VILLAGE_FOUNDATION.get());
     }
 

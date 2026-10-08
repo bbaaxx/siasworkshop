@@ -1,7 +1,5 @@
 {
-  "itemGroup.siasworkshop": "Example Mod Tab",
-  "block.siasworkshop.example_block": "Example Block",
-  "item.siasworkshop.example_item": "Example Item",
+  "itemGroup.siasworkshop": "Sia's Workshop",
 
   "item.siasworkshop.wilderness_compass": "Wilderness Compass",
   "item.siasworkshop.wilderness_compass.scanned": "Nearest village %s blocks away — compass points away from it",
