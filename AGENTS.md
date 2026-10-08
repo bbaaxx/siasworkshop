@@ -24,9 +24,11 @@ src/main/java/com/siaws/siawsmod/
 ├── SiasWorkshopClient.java  Client-only entrypoint (dist = CLIENT)
 ├── config/Config.java       ModConfigSpec definitions
 ├── init/                    One holder class per registry (SiasWorkshopBlocks, SiasWorkshopItems,
-│                            SiasWorkshopCreativeTabs) — add BlockEntities/Menus/Recipes/etc. here
+│                            SiasWorkshopCreativeTabs, SiasWorkshopStructureProcessors) — add
+│                            BlockEntities/Menus/Recipes/etc. here
 ├── content/                 One package per feature, co-locating its Block/Item/BE/Menu/Screen classes
-└── data/                    Datagen providers (blockstates, models, loot); output → src/generated/resources/
+├── data/                    Datagen providers (blockstates, models, loot); output → src/generated/resources/
+└── worldgen/                Structure processors + wood-family mapping (village cherryfying)
 src/main/resources/          Hand-written assets; neoforge.mods.toml lives in src/main/templates/ (property-expanded)
 src/generated/resources/     Datagen output — do not hand-edit; regenerate with runData
 run/                         Dev runtime dir (gitignored)
@@ -35,6 +37,7 @@ run/                         Dev runtime dir (gitignored)
 ## Conventions
 
 - All registrations live in `init/` holders via `DeferredRegister`; the entrypoint only wires them to the mod event bus.
+- Vanilla datapack overrides live in `src/main/resources/data/minecraft/` (tags, template pools) and must stay byte-identical to vanilla except the intended change; worldgen behavior changes are gated via `config/Config.java`.
 - Content assets (blockstates, models, loot tables, tags, recipes) come from datagen (`runData`) wherever possible; only textures/sounds are hand-written under `src/main/resources/assets/siasworkshop/`.
 - Language keys are prefixed `siasworkshop.`; see `assets/siasworkshop/lang/en_us.json`.
 - Placeholder art currently borrows vanilla textures (iron block, apple) — replace when real textures arrive.

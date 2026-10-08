@@ -1,0 +1,8 @@
+{
+  "processors": [
+    {
+      "processor_type": "siasworkshop:cherryfy",
+      "accents": ["birch", "jungle", "acacia"]
+    }
+  ]
+}

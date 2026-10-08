@@ -1,0 +1,88 @@
+{
+  "elements": [
+    {
+      "element": {
+        "element_type": "minecraft:legacy_single_pool_element",
+        "location": "minecraft:village/plains/town_centers/plains_fountain_01",
+        "processors": "siasworkshop:mossify_20_percent_cherryfy",
+        "projection": "rigid"
+      },
+      "weight": 50
+    },
+    {
+      "element": {
+        "element_type": "minecraft:legacy_single_pool_element",
+        "location": "minecraft:village/plains/town_centers/plains_meeting_point_1",
+        "processors": "siasworkshop:mossify_20_percent_cherryfy",
+        "projection": "rigid"
+      },
+      "weight": 50
+    },
+    {
+      "element": {
+        "element_type": "minecraft:legacy_single_pool_element",
+        "location": "minecraft:village/plains/town_centers/plains_meeting_point_2",
+        "processors": {
+          "processors": [
+            {
+              "processor_type": "siasworkshop:cherryfy",
+              "accents": [
+                "birch",
+                "jungle",
+                "acacia"
+              ]
+            }
+          ]
+        },
+        "projection": "rigid"
+      },
+      "weight": 50
+    },
+    {
+      "element": {
+        "element_type": "minecraft:legacy_single_pool_element",
+        "location": "minecraft:village/plains/town_centers/plains_meeting_point_3",
+        "processors": "siasworkshop:mossify_70_percent_cherryfy",
+        "projection": "rigid"
+      },
+      "weight": 50
+    },
+    {
+      "element": {
+        "element_type": "minecraft:legacy_single_pool_element",
+        "location": "minecraft:village/plains/zombie/town_centers/plains_fountain_01",
+        "processors": "siasworkshop:zombie_plains_cherryfy",
+        "projection": "rigid"
+      },
+      "weight": 1
+    },
+    {
+      "element": {
+        "element_type": "minecraft:legacy_single_pool_element",
+        "location": "minecraft:village/plains/zombie/town_centers/plains_meeting_point_1",
+        "processors": "siasworkshop:zombie_plains_cherryfy",
+        "projection": "rigid"
+      },
+      "weight": 1
+    },
+    {
+      "element": {
+        "element_type": "minecraft:legacy_single_pool_element",
+        "location": "minecraft:village/plains/zombie/town_centers/plains_meeting_point_2",
+        "processors": "siasworkshop:zombie_plains_cherryfy",
+        "projection": "rigid"
+      },
+      "weight": 1
+    },
+    {
+      "element": {
+        "element_type": "minecraft:legacy_single_pool_element",
+        "location": "minecraft:village/plains/zombie/town_centers/plains_meeting_point_3",
+        "processors": "siasworkshop:zombie_plains_cherryfy",
+        "projection": "rigid"
+      },
+      "weight": 1
+    }
+  ],
+  "fallback": "minecraft:empty"
+}

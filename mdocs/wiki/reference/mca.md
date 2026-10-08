@@ -46,6 +46,7 @@ source_initiatives: ["mod-ecosystem-research"]
 - Original repo is 1.12-only with old mappings — inspiration only.
 - Reborn's custom registry pattern trades NeoForge conveniences (DeferredRegister, data attachments) for loader portability; Mixin-heavy client rendering.
 - CurseForge disables 3rd-party jar sharing — no Curse Maven for dev deps.
+- **No worldgen**: MCA Reborn 1.21.1 ships zero structures/template pools — its villages are runtime `SavedData` (`VillageManager` scans player-built structures against `data/mca/building_types/*.json` block tags). NOT a reference for village structure generation; for that see StructureTutorialMod, ChoiceTheorem's Overhauled Village, Repurposed Structures.
 
 ## Key links
 - https://github.com/WildBamaBoy/minecraft-comes-alive

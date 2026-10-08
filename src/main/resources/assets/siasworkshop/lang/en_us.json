@@ -4,10 +4,7 @@
   "item.siasworkshop.example_item": "Example Item",
 
   "siasworkshop.configuration.title": "Sia's Workshop Configs",
-  "siasworkshop.configuration.section.siasworkshop.common.toml": "Sia's Workshop Configs",
-  "siasworkshop.configuration.section.siasworkshop.common.toml.title": "Sia's Workshop Configs",
-  "siasworkshop.configuration.items": "Item List",
-  "siasworkshop.configuration.logDirtBlock": "Log Dirt Block",
-  "siasworkshop.configuration.magicNumberIntroduction": "Magic Number Text",
-  "siasworkshop.configuration.magicNumber": "Magic Number"
+  "siasworkshop.configuration.section.siasworkshop.server.toml": "Sia's Workshop Configs",
+  "siasworkshop.configuration.section.siasworkshop.server.toml.title": "Sia's Workshop Configs",
+  "siasworkshop.configuration.cherryfyVillages": "Cherry-themed Villages"
 }
