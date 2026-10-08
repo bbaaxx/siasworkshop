@@ -1,6 +1,6 @@
 {
   "currentStep": "PLAN",
-  "activeInitiative": "multi-version-release-setup-1-20-1-1-21-1",
+  "activeInitiative": "forge-compatibility-1-20-1-verification-1-21-1-forge-build",
   "stepHistory": [
     {
       "step": "IDLE",
@@ -245,6 +245,10 @@
     {
       "step": "PLAN",
       "timestamp": "2026-10-08T17:56:50.810Z"
+    },
+    {
+      "step": "PLAN",
+      "timestamp": "2026-10-08T20:07:34.025Z"
     }
   ]
 }
