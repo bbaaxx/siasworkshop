@@ -10,8 +10,8 @@ import net.minecraft.data.DataGenerator;
 import net.minecraft.data.PackOutput;
 import net.minecraft.data.loot.LootTableProvider;
 import net.minecraft.world.level.storage.loot.parameters.LootContextParamSets;
-import net.neoforged.neoforge.common.data.ExistingFileHelper;
-import net.neoforged.neoforge.data.event.GatherDataEvent;
+import net.minecraftforge.common.data.ExistingFileHelper;
+import net.minecraftforge.data.event.GatherDataEvent;
 
 public final class ModDataGenerators {
     private ModDataGenerators() {}
@@ -26,11 +26,10 @@ public final class ModDataGenerators {
         generator.addProvider(client, new ModBlockStateProvider(output, existingFileHelper));
         generator.addProvider(client, new ModItemModelProvider(output, existingFileHelper));
 
-        // Server data: loot tables
+        // Server data: loot tables (1.20.1 LootTableProvider has no HolderLookup.Provider arg)
         boolean server = event.includeServer();
         generator.addProvider(server, new LootTableProvider(output, Set.of(),
-                List.of(new LootTableProvider.SubProviderEntry(ModBlockLootTables::new, LootContextParamSets.BLOCK)),
-                event.getLookupProvider()));
+                List.of(new LootTableProvider.SubProviderEntry(ModBlockLootTables::new, LootContextParamSets.BLOCK))));
 
         SiasWorkshop.LOGGER.info("Datagen providers registered for {}", SiasWorkshop.MODID);
     }

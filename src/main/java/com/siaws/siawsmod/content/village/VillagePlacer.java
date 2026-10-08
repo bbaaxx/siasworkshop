@@ -13,7 +13,7 @@ import net.minecraft.tags.StructureTags;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.ChunkGenerator;
-import net.minecraft.world.level.chunk.status.ChunkStatus;
+import net.minecraft.world.level.chunk.ChunkStatus;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.level.levelgen.structure.Structure;
 import net.minecraft.world.level.levelgen.structure.StructureStart;
@@ -51,11 +51,12 @@ public final class VillagePlacer {
         Holder.Reference<Structure> plains = level.registryAccess()
                 .registryOrThrow(Registries.STRUCTURE)
                 .getHolderOrThrow(ResourceKey.create(Registries.STRUCTURE,
-                        ResourceLocation.withDefaultNamespace("village_plains")));
+                        new ResourceLocation("village_plains")));
         ChunkGenerator generator = level.getChunkSource().getGenerator();
 
         CherryfyProcessor.force(cherry);
         try {
+            // 1.20.1 signature: StructureTemplateManager + explicit LevelHeightAccessor.
             StructureStart start = plains.value().generate(
                     level.registryAccess(), generator, generator.getBiomeSource(),
                     level.getChunkSource().randomState(), level.getStructureManager(),

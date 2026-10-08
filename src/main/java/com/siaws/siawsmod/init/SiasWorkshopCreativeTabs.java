@@ -6,9 +6,9 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.CreativeModeTabs;
-import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
-import net.neoforged.neoforge.registries.DeferredHolder;
-import net.neoforged.neoforge.registries.DeferredRegister;
+import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
+import net.minecraftforge.registries.DeferredRegister;
+import net.minecraftforge.registries.RegistryObject;
 
 public final class SiasWorkshopCreativeTabs {
     private SiasWorkshopCreativeTabs() {}
@@ -17,7 +17,7 @@ public final class SiasWorkshopCreativeTabs {
             SiasWorkshop.MODID);
 
     // Creates a creative tab with the id "siasworkshop:example_tab" for the example item, placed after the combat tab
-    public static final DeferredHolder<CreativeModeTab, CreativeModeTab> EXAMPLE_TAB = CREATIVE_MODE_TABS.register("example_tab",
+    public static final RegistryObject<CreativeModeTab> EXAMPLE_TAB = CREATIVE_MODE_TABS.register("example_tab",
             () -> CreativeModeTab.builder()
                     .title(Component.translatable("itemGroup.siasworkshop")) // The language key for the tab title
                     .withTabsBefore(CreativeModeTabs.COMBAT)

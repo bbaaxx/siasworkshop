@@ -5,9 +5,9 @@ import com.siaws.siawsmod.content.village.VillageFoundationMenu;
 
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.inventory.MenuType;
-import net.neoforged.neoforge.common.extensions.IMenuTypeExtension;
-import net.neoforged.neoforge.registries.DeferredHolder;
-import net.neoforged.neoforge.registries.DeferredRegister;
+import net.minecraftforge.common.extensions.IForgeMenuType;
+import net.minecraftforge.registries.DeferredRegister;
+import net.minecraftforge.registries.RegistryObject;
 
 public final class SiasWorkshopMenus {
     private SiasWorkshopMenus() {}
@@ -15,6 +15,6 @@ public final class SiasWorkshopMenus {
     public static final DeferredRegister<MenuType<?>> MENUS =
             DeferredRegister.create(Registries.MENU, SiasWorkshop.MODID);
 
-    public static final DeferredHolder<MenuType<?>, MenuType<VillageFoundationMenu>> VILLAGE_FOUNDATION =
-            MENUS.register("village_foundation", () -> IMenuTypeExtension.create(VillageFoundationMenu::fromNetwork));
+    public static final RegistryObject<MenuType<VillageFoundationMenu>> VILLAGE_FOUNDATION =
+            MENUS.register("village_foundation", () -> IForgeMenuType.create(VillageFoundationMenu::fromNetwork));
 }

@@ -3,29 +3,30 @@ package com.siaws.siawsmod.init;
 import com.siaws.siawsmod.SiasWorkshop;
 import com.siaws.siawsmod.content.village.WildernessCompassItem;
 
+import net.minecraft.core.registries.Registries;
 import net.minecraft.world.food.FoodProperties;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
-import net.neoforged.neoforge.registries.DeferredItem;
-import net.neoforged.neoforge.registries.DeferredRegister;
+import net.minecraftforge.registries.DeferredRegister;
+import net.minecraftforge.registries.RegistryObject;
 
 public final class SiasWorkshopItems {
     private SiasWorkshopItems() {}
 
-    public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(SiasWorkshop.MODID);
+    public static final DeferredRegister<Item> ITEMS = DeferredRegister.create(Registries.ITEM, SiasWorkshop.MODID);
 
     // Creates a new BlockItem with the id "siasworkshop:example_block"
-    public static final DeferredItem<BlockItem> EXAMPLE_BLOCK_ITEM = ITEMS.registerSimpleBlockItem("example_block",
-            SiasWorkshopBlocks.EXAMPLE_BLOCK);
+    public static final RegistryObject<BlockItem> EXAMPLE_BLOCK_ITEM = ITEMS.register("example_block",
+            () -> new BlockItem(SiasWorkshopBlocks.EXAMPLE_BLOCK.get(), new Item.Properties()));
 
-    public static final DeferredItem<BlockItem> VILLAGE_FOUNDATION_ITEM = ITEMS.registerSimpleBlockItem("village_foundation",
-            SiasWorkshopBlocks.VILLAGE_FOUNDATION);
+    public static final RegistryObject<BlockItem> VILLAGE_FOUNDATION_ITEM = ITEMS.register("village_foundation",
+            () -> new BlockItem(SiasWorkshopBlocks.VILLAGE_FOUNDATION.get(), new Item.Properties()));
 
-    public static final DeferredItem<Item> WILDERNESS_COMPASS = ITEMS.registerItem("wilderness_compass",
-            WildernessCompassItem::new, new Item.Properties().stacksTo(1));
+    public static final RegistryObject<Item> WILDERNESS_COMPASS = ITEMS.register("wilderness_compass",
+            () -> new WildernessCompassItem(new Item.Properties().stacksTo(1)));
 
     // Creates a new food item with the id "siasworkshop:example_item", nutrition 1 and saturation 2
-    public static final DeferredItem<Item> EXAMPLE_ITEM = ITEMS.registerSimpleItem("example_item",
-            new Item.Properties().food(new FoodProperties.Builder()
-                    .alwaysEdible().nutrition(1).saturationModifier(2f).build()));
+    public static final RegistryObject<Item> EXAMPLE_ITEM = ITEMS.register("example_item",
+            () -> new Item(new Item.Properties().food(new FoodProperties.Builder()
+                    .alwaysEat().nutrition(1).saturationMod(2f).build())));
 }

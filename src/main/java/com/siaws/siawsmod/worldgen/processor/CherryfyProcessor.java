@@ -68,7 +68,7 @@ public class CherryfyProcessor extends StructureProcessor {
     }
 
     private static boolean enabled() {
-        return FORCED.get() || Config.CHERRYFY_VILLAGES.getAsBoolean();
+        return FORCED.get() || Config.CHERRYFY_VILLAGES.get();
     }
 
     @Override
@@ -114,6 +114,6 @@ public class CherryfyProcessor extends StructureProcessor {
     }
 
     public static StructureProcessorType<CherryfyProcessor> type() {
-        return () -> CODEC;
+        return () -> CODEC.codec();
     }
 }

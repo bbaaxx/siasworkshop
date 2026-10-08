@@ -4,7 +4,7 @@ import com.siaws.siawsmod.content.village.VillageFoundationBlockEntity.Flavor;
 import com.siaws.siawsmod.init.SiasWorkshopMenus;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -30,8 +30,8 @@ public class VillageFoundationMenu extends AbstractContainerMenu {
         addDataSlots(data);
     }
 
-    /** Client-side factory reading the extra-data BlockPos written by openMenu. */
-    public static VillageFoundationMenu fromNetwork(int containerId, Inventory playerInventory, RegistryFriendlyByteBuf buf) {
+    /** Client-side factory reading the extra-data BlockPos written by openScreen. */
+    public static VillageFoundationMenu fromNetwork(int containerId, Inventory playerInventory, FriendlyByteBuf buf) {
         return new VillageFoundationMenu(containerId, playerInventory, buf.readBlockPos());
     }
 

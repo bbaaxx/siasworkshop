@@ -38,7 +38,7 @@ public final class WoodFamily {
             Map<String, Block> members = new LinkedHashMap<>();
             for (int i = 1; i < tokens.length; i++) {
                 String[] kv = tokens[i].split("=", 2);
-                Block block = BuiltInRegistries.BLOCK.get(ResourceLocation.parse(kv[1]));
+                Block block = BuiltInRegistries.BLOCK.get(new ResourceLocation(kv[1]));
                 members.put(kv[0], block);
             }
             Family family = new Family(id, Map.copyOf(members));

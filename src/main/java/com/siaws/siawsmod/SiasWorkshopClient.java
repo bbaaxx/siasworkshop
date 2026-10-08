@@ -5,35 +5,26 @@ import com.siaws.siawsmod.content.village.client.WildernessCompassPropertyFuncti
 import com.siaws.siawsmod.init.SiasWorkshopItems;
 import com.siaws.siawsmod.init.SiasWorkshopMenus;
 
+import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraft.client.renderer.item.ItemProperties;
 import net.minecraft.resources.ResourceLocation;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.ModContainer;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.fml.common.Mod;
-import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
-import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
-import net.neoforged.neoforge.client.gui.ConfigurationScreen;
-import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 
 // This class will not load on dedicated servers. Accessing client side code from here is safe.
-@Mod(value = SiasWorkshop.MODID, dist = Dist.CLIENT)
-@EventBusSubscriber(modid = SiasWorkshop.MODID, value = Dist.CLIENT)
+// Registered automatically on the mod event bus for the CLIENT dist only (Forge 47.1 has no
+// dist-scoped @Mod attribute, so the client wiring lives behind @EventBusSubscriber instead).
+@Mod.EventBusSubscriber(modid = SiasWorkshop.MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
 public class SiasWorkshopClient {
-    public SiasWorkshopClient(ModContainer container) {
-        container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
-    }
-
     @SubscribeEvent
-    static void onClientSetup(FMLClientSetupEvent event) {
-        event.enqueueWork(() -> ItemProperties.register(SiasWorkshopItems.WILDERNESS_COMPASS.get(),
-                ResourceLocation.fromNamespaceAndPath(SiasWorkshop.MODID, "angle"),
-                new WildernessCompassPropertyFunction()));
-    }
-
-    @SubscribeEvent
-    static void onMenuScreens(RegisterMenuScreensEvent event) {
-        event.register(SiasWorkshopMenus.VILLAGE_FOUNDATION.get(), VillageFoundationScreen::new);
+    public static void onClientSetup(FMLClientSetupEvent event) {
+        event.enqueueWork(() -> {
+            ItemProperties.register(SiasWorkshopItems.WILDERNESS_COMPASS.get(),
+                    new ResourceLocation(SiasWorkshop.MODID, "angle"),
+                    new WildernessCompassPropertyFunction());
+            MenuScreens.register(SiasWorkshopMenus.VILLAGE_FOUNDATION.get(), VillageFoundationScreen::new);
+        });
     }
 }

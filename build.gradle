@@ -1,7 +1,8 @@
 plugins {
     id 'java-library'
     id 'maven-publish'
-    id 'net.neoforged.moddev' version '2.0.148'
+    // Legacy plugin: covers NeoForge 1.20.1 (Forge-compatible 47.1.x line) via ModDevGradle 2.
+    id 'net.neoforged.moddev.legacyforge' version '2.0.148'
     id 'idea'
 }
 
@@ -36,12 +37,16 @@ base {
     archivesName = "${mod_id}-${minecraft_version}"
 }
 
-// Mojang ships Java 21 to end users in 1.21.1, so mods should target Java 21.
-java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+// Minecraft 1.20.1 targets Java 17.
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
-neoForge {
-    // Specify the version of NeoForge to use.
-    version = project.neo_version
+legacyForge {
+    // NeoForge 1.20.1 keeps Forge-compatible coordinates (net.neoforged:forge).
+    // neoForgeVersion (not version =) makes the legacy plugin resolve the neoforged group;
+    // plain version = would target MinecraftForge instead.
+    enable {
+        neoForgeVersion = project.neo_version
+    }
 
     parchment {
         mappingsVersion = project.parchment_mappings_version
@@ -163,7 +168,7 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
 // this works with both building through Gradle and the IDE.
 sourceSets.main.resources.srcDir generateModMetadata
 // To avoid having to run "generateModMetadata" manually, make it run on every project reload
-neoForge.ideSyncTask generateModMetadata
+legacyForge.ideSyncTask generateModMetadata
 
 // Example configuration to allow publishing using the maven-publish plugin
 publishing {

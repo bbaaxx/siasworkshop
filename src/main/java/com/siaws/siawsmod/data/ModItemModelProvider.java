@@ -1,11 +1,10 @@
 package com.siaws.siawsmod.data;
 
 import com.siaws.siawsmod.SiasWorkshop;
-import com.siaws.siawsmod.init.SiasWorkshopItems;
 
 import net.minecraft.data.PackOutput;
-import net.neoforged.neoforge.client.model.generators.ItemModelProvider;
-import net.neoforged.neoforge.common.data.ExistingFileHelper;
+import net.minecraftforge.client.model.generators.ItemModelProvider;
+import net.minecraftforge.common.data.ExistingFileHelper;
 
 public class ModItemModelProvider extends ItemModelProvider {
     public ModItemModelProvider(PackOutput output, ExistingFileHelper existingFileHelper) {

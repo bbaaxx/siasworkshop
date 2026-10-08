@@ -2,9 +2,8 @@ package com.siaws.siawsmod.content.village;
 
 import java.util.List;
 
-import com.siaws.siawsmod.init.SiasWorkshopDataComponents;
-
 import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.StructureTags;
@@ -24,8 +23,26 @@ public class WildernessCompassItem extends Item {
     /** Scan radius in blocks; vanilla village spacing is 34 chunks, so 640 covers the gap. */
     public static final int SCAN_RADIUS = 640;
 
+    /** Share-NBT key holding the scanned village position (BlockPos packed via {@link BlockPos#asLong()}). */
+    public static final String TARGET_TAG = "village_target";
+
     public WildernessCompassItem(Properties properties) {
         super(properties);
+    }
+
+    /** Village position stored on the stack, or null if the compass hasn't scanned one in. */
+    public static BlockPos getTarget(ItemStack stack) {
+        CompoundTag tag = stack.getTag();
+        if (tag == null || !tag.contains(TARGET_TAG)) return null;
+        return BlockPos.of(tag.getLong(TARGET_TAG));
+    }
+
+    public static void setTarget(ItemStack stack, BlockPos pos) {
+        stack.getOrCreateTag().putLong(TARGET_TAG, pos.asLong());
+    }
+
+    public static void clearTarget(ItemStack stack) {
+        stack.removeTagKey(TARGET_TAG);
     }
 
     @Override
@@ -37,15 +54,14 @@ public class WildernessCompassItem extends Item {
         BlockPos found = ((ServerLevel) level).findNearestMapStructure(StructureTags.VILLAGE,
                 player.blockPosition(), SCAN_RADIUS / 16, false);
         if (found == null) {
-            stack.remove(SiasWorkshopDataComponents.VILLAGE_TARGET.get());
+            clearTarget(stack);
             player.displayClientMessage(Component.translatable(
                     "item.siasworkshop.wilderness_compass.no_village", SCAN_RADIUS), true);
         } else {
             int distance = VillagePlacer.horizontalDistance(found, player.blockPosition());
             // Store with the player's Y: the mirror-target needle math then points purely
             // horizontally away, independent of the synthetic Y in lookup results.
-            stack.set(SiasWorkshopDataComponents.VILLAGE_TARGET.get(),
-                    new BlockPos(found.getX(), player.getBlockY(), found.getZ()));
+            setTarget(stack, new BlockPos(found.getX(), player.getBlockY(), found.getZ()));
             Component verdict = distance >= VillagePlacer.MIN_SEPARATION
                     ? Component.translatable("item.siasworkshop.wilderness_compass.clear")
                     : Component.translatable("item.siasworkshop.wilderness_compass.near", VillagePlacer.MIN_SEPARATION);
@@ -58,9 +74,9 @@ public class WildernessCompassItem extends Item {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltipComponents,
+    public void appendHoverText(ItemStack stack, Level level, List<Component> tooltipComponents,
             TooltipFlag tooltipFlag) {
-        BlockPos target = stack.get(SiasWorkshopDataComponents.VILLAGE_TARGET.get());
+        BlockPos target = getTarget(stack);
         if (target != null) {
             tooltipComponents.add(Component.translatable(
                     "item.siasworkshop.wilderness_compass.tracking", target.getX(), target.getZ()));
