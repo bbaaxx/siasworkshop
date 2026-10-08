@@ -35,7 +35,6 @@ public class SiasWorkshop {
         SiasWorkshopBlockEntities.BLOCK_ENTITY_TYPES.register(modEventBus);
         SiasWorkshopMenus.MENUS.register(modEventBus);
 
-        modEventBus.addListener(SiasWorkshopCreativeTabs::addCreative);
         modEventBus.addListener(ModDataGenerators::gatherData);
 
         ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, Config.SPEC);

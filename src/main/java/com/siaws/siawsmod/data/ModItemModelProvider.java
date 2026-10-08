@@ -13,8 +13,6 @@ public class ModItemModelProvider extends ItemModelProvider {
 
     @Override
     protected void registerModels() {
-        // Placeholder art borrows the vanilla apple texture until custom textures exist
-        withExistingParent("example_item", mcLoc("item/generated"))
-                .texture("layer0", mcLoc("item/apple"));
+        // The wilderness compass model is hand-written under src/main/resources (32 angle-override frames).
     }
 }

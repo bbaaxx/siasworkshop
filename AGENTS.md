@@ -1,6 +1,6 @@
 # Sia's Workshop — Agent Guide
 
-NeoForge mod for Minecraft 1.21.1 (NeoForge 21.1.x, Java 21, Gradle wrapper 9.2.1, ModDevGradle 2.x, Parchment mappings). Mod id: `siasworkshop`.
+NeoForge mod for Minecraft 1.20.1 (NeoForge 47.1.x on the Forge-compatible line, Java 17 toolchain, Gradle wrapper 9.2.1, ModDevGradle 2.x legacy plugin, Parchment mappings). Mod id: `siasworkshop`.
 
 ## Dev loop
 
@@ -29,7 +29,7 @@ src/main/java/com/siaws/siawsmod/
 ├── content/                 One package per feature, co-locating its Block/Item/BE/Menu/Screen classes
 ├── data/                    Datagen providers (blockstates, models, loot); output → src/generated/resources/
 └── worldgen/                Structure processors + wood-family mapping (village cherryfying)
-src/main/resources/          Hand-written assets; neoforge.mods.toml lives in src/main/templates/ (property-expanded)
+src/main/resources/          Hand-written assets; mods.toml lives in src/main/templates/ (property-expanded)
 src/generated/resources/     Datagen output — do not hand-edit; regenerate with runData
 run/                         Dev runtime dir (gitignored)
 ```
@@ -41,8 +41,8 @@ run/                         Dev runtime dir (gitignored)
 - GUI pattern (see `content/village/`): `MenuType` via `IMenuTypeExtension.create` + BlockEntity `MenuProvider`, open with `player.openMenu(be, pos)`; screen buttons go through `handleInventoryButtonClick`/`clickMenuButton` (no custom packets); state sync via `ContainerData`; screens registered in NeoForge's `RegisterMenuScreensEvent` (`MenuScreens.register` is private in 1.21.1).
 - Content assets (blockstates, models, loot tables, tags, recipes) come from datagen (`runData`) wherever possible; only textures/sounds are hand-written under `src/main/resources/assets/siasworkshop/`.
 - Language keys are prefixed `siasworkshop.`; see `assets/siasworkshop/lang/en_us.json`.
-- Placeholder art currently borrows vanilla textures (iron block, apple) — replace when real textures arrive.
-- Mod metadata (id, version, license, name) is driven by `gradle.properties` and expanded into `neoforge.mods.toml` at build time — edit properties, not the TOML.
+- Textures live under `src/main/resources/assets/siasworkshop/textures/`; current art is generated stubs from `tools/gen_stub_textures.py` — final art per `docs/art/texture-specs.md` replaces them file-for-file (names must match).
+- Mod metadata (id, version, license, name) is driven by `gradle.properties` and expanded into `mods.toml` at build time — edit properties, not the TOML.
 
 ## References
 

@@ -1,25 +1,37 @@
+# Sia's Workshop
 
-Installation information
-=======
+A NeoForge mod about finding your spot and building your village.
 
-This template repository can be directly cloned to get you started with a new
-mod. Simply create a new repository cloned from this one, by following the
-instructions provided by [GitHub](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-repository-from-a-template).
+- **Wilderness Compass** — scans for the nearest village and points *away* from it, so you
+  always know how much separation you have before placing a village of your own.
+- **Village Foundation** — a block that generates a full village where you place it.
+  Pick cherry blossom or vanilla flavor from its screen.
+- **Cherry-themed villages** (optional, server config) — vanilla villages generate
+  re-skinned with cherry blossom materials.
 
-Once you have your clone, simply open the repository in the IDE of your choice. The usual recommendation for an IDE is either IntelliJ IDEA or Eclipse.
+## Supported versions
 
-If at any point you are missing libraries in your IDE, or you've run into problems you can
-run `gradlew --refresh-dependencies` to refresh the local cache. `gradlew clean` to reset everything 
-{this does not affect your code} and then start the process again.
+| Minecraft | NeoForge | Branch |
+| --- | --- | --- |
+| 1.21.1 | 21.1.x | `main` |
+| 1.20.1 | 47.1.x | `version/1.20.1` |
 
-Mapping Names:
-============
-By default, the MDK is configured to use the official mapping names from Mojang for methods and fields 
-in the Minecraft codebase. These names are covered by a specific license. All modders should be aware of this
-license. For the latest license text, refer to the mapping file itself, or the reference copy here:
-https://github.com/NeoForged/NeoForm/blob/main/Mojang.md
+## Building
 
-Additional Resources: 
-==========
-Community Documentation: https://docs.neoforged.net/  
-NeoForged Discord: https://discord.neoforged.net/
+```bash
+./gradlew build        # build the jar (build/libs/)
+./gradlew runClient    # dev client
+./gradlew runData      # regenerate data assets
+```
+
+Requires JDK 21 (1.21.1 branch) or JDK 17 (1.20.1 branch); Gradle toolchains
+auto-provision via the foojay resolver.
+
+## Layout
+
+Mod sources live under `src/main/java/com/siaws/siawsmod/`. See
+[AGENTS.md](AGENTS.md) for the full project guide (structure, conventions, dev loop).
+
+## License
+
+All Rights Reserved — see `gradle.properties` (`mod_license`).

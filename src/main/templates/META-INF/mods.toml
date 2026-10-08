@@ -1,23 +1,12 @@
-# This is an example mods.toml file. It contains the data relating to the loading mods.
-# There are several mandatory fields (#mandatory), and many more that are optional (#optional).
-# The overall format is standard TOML format, v0.5.0.
-# Note that there are a couple of TOML lists in this file.
-# Find more information on toml format here:  https://github.com/toml-lang/toml
-
 # The name of the mod loader type to load - for regular FML @Mod mods it should be javafml
 modLoader="javafml" #mandatory
 
 # A version range to match for said mod loader - for regular FML @Mod it will be the FML version. This is currently 2.
 loaderVersion="${loader_version_range}" #mandatory
 
-# The license for you mod. This is mandatory metadata and allows for easier comprehension of your redistributive properties.
-# Review your options at https://choosealicense.com/. All rights reserved is the default copyright stance, and is thus the default here.
 license="${mod_license}"
 
-# A URL to refer people to when problems occur with this mod
-#issueTrackerURL="https://change.me.to.your.issue.tracker.example.invalid/" #optional
-
-# A list of mods - how many allowed here is determined by the individual mod loader
+# A list of mods - how many allowed here is determined by the individual loader
 [[mods]] #mandatory
 
 # The modid of the mod
@@ -29,24 +18,18 @@ version="${mod_version}" #mandatory
 # A display name for the mod
 displayName="${mod_name}" #mandatory
 
-# A URL to query for updates for this mod. See the JSON update specification https://docs.neoforged.net/docs/misc/updatechecker/
-#updateJSONURL="https://change.me.example.invalid/updates.json" #optional
-
-# A URL for the "homepage" for this mod, displayed in the mod UI
-#displayURL="https://change.me.to.your.mods.homepage.example.invalid/" #optional
-
-# A file name (in the root of the mod JAR) containing a logo for display
-#logoFile="examplemod.png" #optional
-
-# A text field displayed in the mod UI
-#credits="" #optional
-
 # The authors of the mod, displayed in the mod UI (optional)
 authors="Sia and Bax"
 
 # The description text for the mod (multi line!) (#mandatory)
 description='''
-Example mod description.
+Find your spot, then build your village.
+
+The Wilderness Compass scans for the nearest village and points away from it,
+so you always know how much separation you have. The Village Foundation block
+generates a full village where you place it - pick cherry blossom or vanilla
+flavor from its screen. Through the server config, vanilla villages can also
+generate re-skinned with cherry blossom materials.
 '''
 
 # The [[mixins]] block allows you to declare your mixin config to FML so that it gets loaded.
@@ -58,7 +41,6 @@ Example mod description.
 #[[accessTransformers]]
 #file="META-INF/accesstransformer.cfg"
 
-# A dependency - use the . to indicate dependency for a specific modid. Dependencies are optional.
 [[dependencies.${mod_id}]] #optional
     # the modid of the dependency
     modId="forge" #mandatory
@@ -73,7 +55,6 @@ Example mod description.
     # Side this dependency is applied on - BOTH, CLIENT, or SERVER
     side="BOTH"
 
-# Here's another dependency
 [[dependencies.${mod_id}]]
     modId="minecraft"
     mandatory=true
@@ -82,8 +63,7 @@ Example mod description.
     ordering="NONE"
     side="BOTH"
 
-# Features are specific properties of the game environment, that you may want to declare you require. This example declares
-# that your mod requires GL version 3.2 or higher. Other features will be added. They are side aware so declaring this won't
-# stop your mod loading on the server for example.
+# Features are specific properties of the game environment that you may declare you require.
+# They are side aware, so declaring one won't stop your mod loading on the server, for instance.
 #[features.${mod_id}]
 #openGLVersion="[3.2,)"
