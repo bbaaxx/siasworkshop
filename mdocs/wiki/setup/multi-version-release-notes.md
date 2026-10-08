@@ -4,7 +4,7 @@ title: "Multi-Version Release Setup (1.20.1 + 1.21.1)"
 category: "setup"
 created: "2026-10-08"
 updated: "2026-10-08"
-related_initiatives: ["multi-version-release-setup-1-20-1-1-21-1"]
+related_initiatives: ["multi-version-release-setup-1-20-1-1-21-1", "forge-compatibility-1-20-1-verification-1-21-1-forge-build"]
 tags: ["tooling","release","ci","versioning","backport"]
 lifecycle: "stable"
 knowledge_type: "how-to"

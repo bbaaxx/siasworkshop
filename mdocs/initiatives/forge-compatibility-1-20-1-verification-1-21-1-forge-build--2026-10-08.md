@@ -6,7 +6,7 @@ created: "2026-10-08"
 updated: "2026-10-08"
 owner: ""
 tags: ["tooling","release","forge","backport"]
-related_wiki: []
+related_wiki: ["setup/multi-version-release-notes"]
 priority: "medium"
 graduated: "2026-10-08"
 ---
