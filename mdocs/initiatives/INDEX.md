@@ -2,7 +2,7 @@
 
 - **Cherry blossom villages (worldgen)** (done) — cherry-village-worldgen--2026-10-08.md — 2026-10-08 — []
 - **Cherry-theme villages (config-gated cosmetic option)** (done) — cherryfy-villages--2026-10-08.md — 2026-10-08 — []
-- **Final village tool textures** (active) — final-village-tool-textures--2026-10-09.md — 2026-10-09 — []
+- **Final village tool textures** (done) — final-village-tool-textures--2026-10-09.md — 2026-10-09 — []
 - **Finalize initial release v1.0.0** (done) — finalize-initial-release-1-0-0--2026-10-08.md — 2026-10-08 — [release, cleanup, textures, ci, tooling]
 - **Get the first project run** (done) — first-project-run--2026-10-07.md — 2026-10-07 — []
 - **Forge compatibility: 1.20.1 verification + 1.21.1 Forge build** (done) — forge-compatibility-1-20-1-verification-1-21-1-forge-build--2026-10-08.md — 2026-10-08 — [tooling, release, forge, backport]
