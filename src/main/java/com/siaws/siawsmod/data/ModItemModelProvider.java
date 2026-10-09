@@ -13,6 +13,11 @@ public class ModItemModelProvider extends ItemModelProvider {
 
     @Override
     protected void registerModels() {
-        // The wilderness compass model is hand-written under src/main/resources (32 angle-override frames).
+        // Keep the angle-override table hand-written; generate each referenced frame model.
+        for (int frame = 0; frame < 32; frame++) {
+            String name = "wilderness_compass_%02d".formatted(frame);
+            withExistingParent(name, mcLoc("item/generated"))
+                    .texture("layer0", modLoc("item/" + name));
+        }
     }
 }
