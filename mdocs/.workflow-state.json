@@ -1,6 +1,6 @@
 {
   "currentStep": "EXECUTE",
-  "activeInitiative": "publish-to-curseforge",
+  "activeInitiative": "compass-fix-foundation-consume",
   "stepHistory": [
     {
       "step": "IDLE",
@@ -333,6 +333,30 @@
     {
       "step": "EXECUTE",
       "timestamp": "2026-10-09T18:42:43.336Z"
+    },
+    {
+      "step": "IDLE",
+      "timestamp": "2026-10-09T19:03:13.004Z"
+    },
+    {
+      "step": "UNDERSTAND",
+      "timestamp": "2026-10-09T19:03:13.042Z"
+    },
+    {
+      "step": "DISCOVER",
+      "timestamp": "2026-10-09T19:03:13.081Z"
+    },
+    {
+      "step": "CONTEXT",
+      "timestamp": "2026-10-09T19:03:13.119Z"
+    },
+    {
+      "step": "PLAN",
+      "timestamp": "2026-10-09T19:03:13.159Z"
+    },
+    {
+      "step": "EXECUTE",
+      "timestamp": "2026-10-09T19:03:13.302Z"
     }
   ]
 }
