@@ -62,8 +62,9 @@ public class VillageFoundationBlockEntity extends BlockEntity implements MenuPro
         switch (result) {
             case SUCCESS -> {
                 generated = true;
-                setChanged();
                 player.displayClientMessage(Component.translatable("block.siasworkshop.village_foundation.success"), true);
+                // The foundation is consumed by the creation it anchors.
+                serverLevel.destroyBlock(worldPosition, false);
             }
             case TOO_CLOSE -> player.displayClientMessage(Component.translatable(
                     "block.siasworkshop.village_foundation.too_close", VillagePlacer.MIN_SEPARATION), true);
