@@ -2,7 +2,7 @@
 
 - **Cherry blossom villages (worldgen)** (done) — cherry-village-worldgen--2026-10-08.md — 2026-10-08 — []
 - **Cherry-theme villages (config-gated cosmetic option)** (done) — cherryfy-villages--2026-10-08.md — 2026-10-08 — []
-- **v1.0.1: compass pre-scan behavior + foundation consumption** (active) — compass-fix-foundation-consume--2026-10-09.md — 2026-10-09 — [bugfix, enhancement, release]
+- **v1.0.1: compass pre-scan behavior + foundation consumption** (done) — compass-fix-foundation-consume--2026-10-09.md — 2026-10-09 — [bugfix, enhancement, release]
 - **Final village tool textures** (done) — final-village-tool-textures--2026-10-09.md — 2026-10-09 — []
 - **Finalize initial release v1.0.0** (done) — finalize-initial-release-1-0-0--2026-10-08.md — 2026-10-08 — [release, cleanup, textures, ci, tooling]
 - **Get the first project run** (done) — first-project-run--2026-10-07.md — 2026-10-07 — []
