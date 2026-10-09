@@ -45,9 +45,18 @@ Conventions for both:
   as a single static texture and tell us — we can point all overrides at one frame for v1
   and ship the animated set later.
 
+## 3. CurseForge project logo
+
+- **File:** hand to us as `logo.png` (we upload it to CurseForge; it is not shipped in the mod jar)
+- **Size:** square 1:1, at least 512×512, PNG (transparency fine)
+- **What it is:** the mod's storefront identity — should match the in-game art style
+  (cherry blossom + compass/foundation motifs read well). Used as the project icon on
+  the CurseForge website and app; downscaled to tiny list sizes, so keep it bold.
+
 ## Handoff checklist
 
 - [ ] `village_foundation.png` — 16×16, opaque
 - [ ] `wilderness_compass_00.png` … `wilderness_compass_31.png` — 32 × 16×16, alpha
+- [ ] `logo.png` — square 1:1, ≥512×512 (CurseForge project icon, not in-game)
 - [ ] All file names exactly as listed above
 - [ ] Files dropped into the two directories above, committed — done (no code changes needed)

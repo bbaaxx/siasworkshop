@@ -1,0 +1,83 @@
+---
+id: "curseforge-publishing"
+title: "CurseForge Publishing — Sia's Workshop"
+category: "setup"
+created: "2026-10-09"
+updated: "2026-10-09"
+related_initiatives: ["publish-to-curseforge"]
+tags: ["release","publishing","curseforge"]
+lifecycle: "stable"
+knowledge_type: "how-to"
+confidence: "high"
+---
+
+How to get this mod published on CurseForge. Researched 2026-10-09 against current CurseForge support docs for the v1.0.0 release (MC 1.21.1 NeoForge 21.1.x + MC 1.20.1 NeoForge 47.1.x). Tracked by initiative `publish-to-curseforge`.
+
+## The pipeline at a glance
+
+Create project (web) → upload a file → moderation review → live. No separate author gate: a registered CurseForge account can create projects at `authors.curseforge.com/#/projects/create/choose-game`. A new project only becomes visible/syncs to the CurseForge App once it has at least one approved Release or Beta file. Everything below assumes manual publishing through the web UI; CI automation at the end.
+
+## Project creation (one-time)
+
+- Name: `Sia's Workshop` (must be unique on CF — check `curseforge.com/minecraft/search` first; rejected if taken).
+- Summary: short listing blurb.
+- Description: full English description — moderators reject poor grammar / insufficient description; editable later.
+- Project License: All Rights Reserved (dropdown; if absent use Custom License with ARR text).
+- Class: Mods (Java). Main category suggestion: World Gen; additional (max 4, relevant only): Map & Information (compass), Cosmetic (cherryfy).
+- Logo: square 1:1 PNG (≥512×512 recommended; CF docs publish no exact limits) — sourced from the designer.
+- Gallery images: NOT required for mods (only texture packs/sims), but 2–3 in-game screenshots help review + downloads.
+
+## File upload — one upload per MC version
+
+A CF file can be tagged with multiple game versions, but our jars are per-MC-version, so upload two files (from https://github.com/bbaaxx/siasworkshop/releases/tag/v1.0.0):
+
+| | File 1 | File 2 |
+| --- | --- | --- |
+| File | siasworkshop-1.21.1-1.0.0.jar | siasworkshop-1.20.1-1.0.0.jar |
+| Display Name | Sia's Workshop 1.0.0 (MC 1.21.1) | Sia's Workshop 1.0.0 (MC 1.20.1) |
+| Supported Versions | 1.21.1 | 1.20.1 |
+| Modloader tag | NeoForge | NeoForge |
+| Release Type | Release | Release |
+| Changelog | Initial release text | same |
+
+**Always set the modloader tag.** CF defaults untagged Minecraft files to Forge; the selector (Supported Modloader Versions) is edited per file (Files tab → hover file → Edit). NeoForge is available as a loader tag for MC 1.20.1+ — correct for both jars. Do NOT tag the 1.20.1 jar as Forge even though it sits on the Forge-compatible 47.1 line.
+
+Other upload facts:
+- Minecraft mods upload as `.jar` directly (the ".zip only" rule in CF docs is for most OTHER games). Max 2 GB.
+- Release Options: leave "publish after moderation passes" unless scheduling intentionally.
+- Related Projects: none (no dependencies/incompatibilities).
+- After upload the file shows "Under Review" — moderators approve, request changes, or reject (reasons shown on the file).
+
+## Gotchas
+
+- English-only, grammatical description — explicit rejection criterion.
+- Mac-made zips contain `__macosx/` + `.ds_store` → auto-rejected. Irrelevant for direct .jar uploads; matters for future zip packs.
+- Experimental project type hides the project entirely — don't submit the real launch as experimental.
+- Alpha-only projects don't sync to the app; ship Release.
+
+## Post-publish settings
+
+- Reward Program: opt-in points-per-download → PayPal/Amazon; optional per-project toggle in author console.
+- Add GitHub repo as the project Source relation.
+
+## CI automation (optional follow-up)
+
+Author console offers an API token ("Creator Tools Integration — automate mod and file uploads via our API through your CI/CD pipeline"). Routes once we have a token + project ID:
+1. Direct CurseForge API POST /projects/{projectId}/files from release.yml (API can't create projects).
+2. `mc-publish` GitHub Action (Kir-Antipov) — pushes to GitHub Releases + CurseForge (and Modrinth) in one step; takes CF token + project ID.
+
+Recommendation: publish v1.0.0 manually first (learn the review loop), then wire the token in once the project ID is known. Store as GitHub Actions secret `CURSEFORGE_TOKEN`, never in the repo.
+
+## Sources
+
+- Creating and Submitting a Project — https://support.curseforge.com/support/solutions/articles/9000197241-creating-and-submitting-a-project
+- File & Project Types and Additional Fields — https://support.curseforge.com/support/solutions/articles/9000197242-file-project-types-and-additional-fields
+- Minecraft Modloaders — https://support.curseforge.com/support/solutions/articles/9000202116-minecraft-modloaders
+- CurseForge for Mod Authors — https://authors.curseforge.com/welcome/
+- Publishing mods with MC-Publish — https://wiki.fabricmc.net/tutorial:publishing_mods_using_github_actions
+
+## Referenced By
+
+*Auto-generated by mdocs*
+
+- publish-to-curseforge
