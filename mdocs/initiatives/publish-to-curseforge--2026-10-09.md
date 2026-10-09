@@ -8,6 +8,7 @@ owner: ""
 tags: ["release","publishing","curseforge"]
 related_wiki: ["setup/curseforge-publishing"]
 priority: "medium"
+next_action: "User creates CF project in browser using docs/curseforge-description.html + logo; upload v1.0.1 jars with NeoForge tags"
 ---
 
 ## Objective
@@ -24,5 +25,6 @@ Get Sia's Workshop v1.0.0 published on CurseForge for MC 1.21.1 (NeoForge 21.1.x
 - [2026-10-09T18:42:43.239Z] Created initiative via mdocs command
 - [2026-10-09T18:55:00Z] Research complete against current CF support docs; findings recorded in wiki setup/curseforge-publishing; project logo added to docs/art/texture-specs.md designer handoff.
 - Reciprocal wiki link added.
+- Project page description drafted at docs/curseforge-description.html (paste-ready HTML: pitch, compass/foundation/cherryfy features, usage steps, version table, config, modpack + source notes; screenshots + designer credit marked TODO). Summary blurb: "A compass that points away from villages so you know when you are clear to build one — then a block that generates the whole village. Cherry blossom included."
 
 ## Artifacts
