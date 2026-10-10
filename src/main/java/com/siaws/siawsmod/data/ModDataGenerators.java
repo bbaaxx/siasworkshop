@@ -26,10 +26,11 @@ public final class ModDataGenerators {
         generator.addProvider(client, new ModBlockStateProvider(output, existingFileHelper));
         generator.addProvider(client, new ModItemModelProvider(output, existingFileHelper));
 
-        // Server data: loot tables (1.20.1 LootTableProvider has no HolderLookup.Provider arg)
+        // Server data: loot tables and recipes (1.20.1 providers take no HolderLookup.Provider arg)
         boolean server = event.includeServer();
         generator.addProvider(server, new LootTableProvider(output, Set.of(),
                 List.of(new LootTableProvider.SubProviderEntry(ModBlockLootTables::new, LootContextParamSets.BLOCK))));
+        generator.addProvider(server, new ModRecipeProvider(output));
 
         SiasWorkshop.LOGGER.info("Datagen providers registered for {}", SiasWorkshop.MODID);
     }
