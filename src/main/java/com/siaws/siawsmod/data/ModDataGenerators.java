@@ -26,11 +26,12 @@ public final class ModDataGenerators {
         generator.addProvider(client, new ModBlockStateProvider(output, existingFileHelper));
         generator.addProvider(client, new ModItemModelProvider(output, existingFileHelper));
 
-        // Server data: loot tables
+        // Server data: loot tables, recipes
         boolean server = event.includeServer();
         generator.addProvider(server, new LootTableProvider(output, Set.of(),
                 List.of(new LootTableProvider.SubProviderEntry(ModBlockLootTables::new, LootContextParamSets.BLOCK)),
                 event.getLookupProvider()));
+        generator.addProvider(server, new ModRecipeProvider(output, event.getLookupProvider()));
 
         SiasWorkshop.LOGGER.info("Datagen providers registered for {}", SiasWorkshop.MODID);
     }

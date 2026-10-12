@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "B": {
+      "item": "minecraft:bell"
+    },
+    "E": {
+      "item": "minecraft:emerald_block"
+    },
+    "L": {
+      "item": "minecraft:lodestone"
+    },
+    "P": {
+      "item": "minecraft:smooth_stone"
+    },
+    "S": {
+      "item": "minecraft:shulker_box"
+    }
+  },
+  "pattern": [
+    "SBS",
+    "ELE",
+    "PPP"
+  ],
+  "result": {
+    "count": 1,
+    "id": "siasworkshop:village_foundation"
+  }
+}
