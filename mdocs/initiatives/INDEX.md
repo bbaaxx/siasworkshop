@@ -1,14 +1,18 @@
 # Initiatives
 
+- **Backport end-game tool recipes to 1.20.1 (final 1.20.x release)** (done) — backport-recipes-1-20-1--2026-10-10.md — 2026-10-10 — [backport, recipes, datagen, release]
 - **Cherry blossom villages (worldgen)** (done) — cherry-village-worldgen--2026-10-08.md — 2026-10-08 — []
 - **Cherry-theme villages (config-gated cosmetic option)** (done) — cherryfy-villages--2026-10-08.md — 2026-10-08 — []
 - **v1.0.1: compass pre-scan behavior + foundation consumption** (done) — compass-fix-foundation-consume--2026-10-09.md — 2026-10-09 — [bugfix, enhancement, release]
+- **End-game recipes for village tools** (done) — endgame-village-tool-recipes--2026-10-10.md — 2026-10-10 — [recipes, datagen, balance, villages]
 - **Final village tool textures** (done) — final-village-tool-textures--2026-10-09.md — 2026-10-09 — []
 - **Finalize initial release v1.0.0** (done) — finalize-initial-release-1-0-0--2026-10-08.md — 2026-10-08 — [release, cleanup, textures, ci, tooling]
 - **Get the first project run** (done) — first-project-run--2026-10-07.md — 2026-10-07 — []
 - **Forge compatibility: 1.20.1 verification + 1.21.1 Forge build** (done) — forge-compatibility-1-20-1-verification-1-21-1-forge-build--2026-10-08.md — 2026-10-08 — [tooling, release, forge, backport]
+- **Integrate mdocs into coordinator workflow** (done) — mdocs-coordinator-integration--2026-10-10.md — 2026-10-10 — [tooling, mdocs, agents]
 - **Research open-source mod ecosystem** (done) — mod-ecosystem-research--2026-10-07.md — 2026-10-07 — []
 - **Multi-version release setup: 1.20.1 + 1.21.1** (done) — multi-version-release-setup-1-20-1-1-21-1--2026-10-08.md — 2026-10-08 — [tooling, release, backport, ci]
 - **Scaffold project structure and dev loop** (done) — project-scaffolding--2026-10-07.md — 2026-10-07 — []
 - **Publish v1.0.0 to CurseForge** (done) — publish-to-curseforge--2026-10-09.md — 2026-10-09 — [release, publishing, curseforge]
+- **Release v1.0.2: end-game recipes on 1.21.1 + 1.20.1** (active) — release-1-0-2--2026-10-12.md — 2026-10-12 — [release, 1.20.1, recipes]
 - **Village tools: wilderness compass + village foundation block** (done) — village-tools-wilderness-compass-village-foundation-block--2026-10-08.md — 2026-10-08 — [villages, items, blocks, gui, worldgen]

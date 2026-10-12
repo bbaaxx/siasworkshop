@@ -3,8 +3,8 @@ id: "village-tools-notes"
 title: "Village Tools Notes: Compass, Foundation Block, Structure Lookups"
 category: "worldgen"
 created: "2026-10-08"
-updated: "2026-10-09"
-related_initiatives: ["village-tools-wilderness-compass-village-foundation-block","compass-fix-foundation-consume"]
+updated: "2026-10-10"
+related_initiatives: ["village-tools-wilderness-compass-village-foundation-block","compass-fix-foundation-consume","endgame-village-tool-recipes"]
 tags: ["items","blocks","gui","structure-lookup","compass","villages"]
 lifecycle: "stable"
 knowledge_type: "how-to"
@@ -57,3 +57,4 @@ Mirror `PlaceCommand.placeStructure`: `structure.generate(registryAccess, genera
 
 - village-tools-wilderness-compass-village-foundation-block
 - compass-fix-foundation-consume
+- endgame-village-tool-recipes

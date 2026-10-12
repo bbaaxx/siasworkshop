@@ -3,8 +3,8 @@ id: "multi-version-release-notes"
 title: "Multi-Version Release Setup (1.20.1 + 1.21.1)"
 category: "setup"
 created: "2026-10-08"
-updated: "2026-10-09"
-related_initiatives: ["multi-version-release-setup-1-20-1-1-21-1","forge-compatibility-1-20-1-verification-1-21-1-forge-build","finalize-initial-release-1-0-0"]
+updated: "2026-10-10"
+related_initiatives: ["multi-version-release-setup-1-20-1-1-21-1","forge-compatibility-1-20-1-verification-1-21-1-forge-build","finalize-initial-release-1-0-0","backport-recipes-1-20-1"]
 tags: ["tooling","release","ci","versioning","backport"]
 lifecycle: "stable"
 knowledge_type: "how-to"
@@ -72,3 +72,4 @@ From APIs we verified against 21.1.256 sources this session:
 - multi-version-release-setup-1-20-1-1-21-1
 - forge-compatibility-1-20-1-verification-1-21-1-forge-build
 - finalize-initial-release-1-0-0
+- backport-recipes-1-20-1
