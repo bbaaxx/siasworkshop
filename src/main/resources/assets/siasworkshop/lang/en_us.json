@@ -11,6 +11,8 @@
   "item.siasworkshop.agent_inspector": "Agent Inspector",
   "item.siasworkshop.agent_inspector.hint": "Right-click a workshop agent to print its observation snapshot",
   "item.siasworkshop.agent_inspector.disabled": "Agent Inspector is disabled (agents.debugInspector = false)",
+  "item.siasworkshop.agent_inspector.saved": "snapshot saved: %s",
+  "item.siasworkshop.agent_inspector.save_failed": "failed to save snapshot: %s",
 
   "entity.siasworkshop.workshop_agent": "Workshop Agent",
 

@@ -59,7 +59,26 @@ Companion: `setup/agent-shared-ledger` (cross-agent coordination, SEQ-000..007),
    output (Inspector should write the snapshot to a file on disk — chat
    transcription is lossy).
 
-## Current repo state (IMPORTANT)
+## Current repo state (IMPORTANT — refreshed 2026-10-14 by recovery session)
+
+- **Spike diff COMMITTED** as `8bfa3b8` (feat(agents): workshop agent entity
+  spike) at user approval, incl. all mdocs files from that session.
+- **Second slice implemented, UNCOMMITTED** (awaits user commit decision):
+  decision pool + task board + comfort detectors + SEQ-007 observation
+  compression + snapshot-to-file. New: `content/agents/pool/` (AgentDecisionPool,
+  PoolEntry), `content/agents/tasks/` (TaskBoard, BoardTask, ComfortDetectors),
+  `content/agents/AgentWorldData.java`, `content/agents/ObservationBudget.java`;
+  modified: AgentObservation, AgentInspectorItem, Config, SiasWorkshop,
+  AgentsGameTest, en_us.json. New gametests: `gametest/AgentsGoalsGameTest.java`
+  (13 tests) + `agentsgoalsgametest.empty.nbt` fixture.
+- `publish-curseforge-1-0-2` CLOSED at user confirmation (publishing verified
+  e2e previously).
+- **Verification status of the new slice**: `./gradlew build` ✅,
+  `runGameTestServer` ✅ 16/16 (coordinator-rerun, not just builder-reported).
+  Review cycle: 1 blocking (shelter exposure check) + should-fixes, all fixed
+  (see ledger SEQ-008 + initiative progress log).
+
+## Original session's repo state (historical)
 
 - **UNCOMMITTED working-tree changes** — nothing from the agents work is
   committed yet. Untracked/modified (as of last build):
@@ -79,17 +98,17 @@ Companion: `setup/agent-shared-ledger` (cross-agent coordination, SEQ-000..007),
 - **OPEN DECISION: commit this diff** (suggested: one commit for the spike
   incl. bugfix). User has not yet approved a commit.
 
-## mdocs state
+## mdocs state (refreshed 2026-10-14 by recovery session)
 
 - Workflow engine: idle, `currentStep: COMPLETE`, no active workflow initiative.
-- Queue (user-confirmed order):
-  1. `agents-v1-decision-pool-goals--2026-10-14` — status "active" in INDEX but
-     **not started** (created pending, never resumed, no workflow steps). Scope
-     grew (SEQ-007): + observation compression pass with budget gametest,
-     + verbatim snapshot-to-file debug output.
-  2. `agents-v1-llm-build-knowledge--2026-10-14` — same: queued, not started.
-- `publish-curseforge-1-0-2--2026-10-13` — status active, zero progress. User
-  said publishing was tested e2e; **confirm with user whether to close it**.
+- `agents-v1-decision-pool-goals--2026-10-14` — **done** (16/16 gametests; see
+  its progress log for the review fix list and follow-ups).
+- `publish-curseforge-1-0-2--2026-10-13` — **closed** at user confirmation.
+- Queue (user-confirmed order): `agents-v1-llm-build-knowledge--2026-10-14` is
+  next and only remaining agents initiative (LLM client, blueprints/parsers,
+  build-card loader). Carry-over follow-ups for it: task-execution loop that
+  claims board tasks and cites pool entries via `AgentDecisionPool.recordSuccess`;
+  `WorkshopAgentEntity.currentTask()` still the "idle" stub.
 - `mdocs validate`: valid, 0 errors, 3 warnings — all intentional: three done
   research/design initiatives link `lifecycle: draft` wiki pages (unverified,
   no-web-access knowledge). Flip pages to `stable` only after a human verifies

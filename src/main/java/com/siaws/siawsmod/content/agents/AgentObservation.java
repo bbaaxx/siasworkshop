@@ -34,7 +34,10 @@ import net.minecraft.world.level.block.state.BlockState;
  * design brief (mdocs/wiki/reference/agent-embodiment-observation.md, pillar 2). Runs on the
  * server thread; sections are emitted in salience order, one per line, using counts rather
  * than lists and coordinates relative to the agent (or to the village foundation when one
- * is near). Rough budget: well under ~600 tokens for a typical village scene.
+ * is near). The budget ({@code agents.observationBudgetTokens}) is enforced by compressing
+ * sections bottom-up in salience order: ENVIRONMENT shrinks to a one-liner first, then
+ * NEARBY ENTITIES to counts only, then NEARBY BLOCKS to a truncated top-list, then PLAYERS
+ * to name@distance. SELF and AVAILABLE ACTIONS always survive.
  *
  * <p>Helpers take plain (level, position, …) arguments where practical so they stay pure
  * enough to unit-test without an entity.
@@ -45,28 +48,74 @@ public final class AgentObservation {
     /** How far to look for a village foundation block before falling back to absolute coords. */
     public static final int FOUNDATION_RADIUS = 48;
     public static final int FOUNDATION_Y_RADIUS = 12;
+    /** Full-format cap for the block-count top-list (compact format uses 3). */
+    public static final int BLOCK_TOP_CAP = 6;
+    private static final int BLOCK_TOP_CAP_COMPACT = 3;
 
     private AgentObservation() {}
 
-    /** Builds the full six-section snapshot for {@code agent}. Server-side only. */
-    public static String build(WorkshopAgentEntity agent) {
+    /**
+     * Builds the full six-section snapshot for {@code agent}, compressed until it fits
+     * {@code budgetTokens} (see class javadoc for the salience order). Server-side only.
+     */
+    public static String build(WorkshopAgentEntity agent, int budgetTokens) {
         ServerLevel level = (ServerLevel) agent.level();
         BlockPos pos = agent.blockPosition();
-
-        StringBuilder sb = new StringBuilder();
-        appendSelf(sb, agent, level, pos);
-        sb.append('\n');
-        appendPlayers(sb, level, agent);
-        sb.append('\n');
         BlockScan scan = scanBlocks(level, pos);
-        appendNearbyBlocks(sb, scan, pos);
-        sb.append('\n');
-        appendEntities(sb, level, agent);
-        sb.append('\n');
-        appendEnvironment(sb, level, pos);
-        sb.append('\n');
+
+        int envLevel = 0; // 0 full, 1 minimal one-liner
+        int entLevel = 0; // 0 full, 1 counts only
+        int blkLevel = 0; // 0 full, 1 truncated top-list
+        int plLevel = 0;  // 0 full, 1 name@distance only
+        while (true) {
+            List<String> sections = render(agent, level, pos, scan, envLevel, entLevel, blkLevel, plLevel);
+            String snapshot = String.join("\n", sections);
+            boolean fullyCompressed = envLevel == 1 && entLevel == 1 && blkLevel == 1 && plLevel == 1;
+            if (ObservationBudget.estimateTokens(snapshot) <= budgetTokens || fullyCompressed) {
+                return snapshot;
+            }
+            if (envLevel == 0) {
+                envLevel = 1;
+            } else if (entLevel == 0) {
+                entLevel = 1;
+            } else if (blkLevel == 0) {
+                blkLevel = 1;
+            } else if (plLevel == 0) {
+                plLevel = 1;
+            }
+        }
+    }
+
+    private static List<String> render(WorkshopAgentEntity agent, ServerLevel level, BlockPos pos,
+            BlockScan scan, int envLevel, int entLevel, int blkLevel, int plLevel) {
+        StringBuilder sb = new StringBuilder();
+        List<String> sections = new ArrayList<>(6);
+
+        sb.setLength(0);
+        appendSelf(sb, agent, level, pos);
+        sections.add(sb.toString());
+
+        sb.setLength(0);
+        appendPlayers(sb, level, agent, plLevel == 1);
+        sections.add(sb.toString());
+
+        sb.setLength(0);
+        appendNearbyBlocks(sb, scan, pos, blkLevel == 1);
+        sections.add(sb.toString());
+
+        sb.setLength(0);
+        appendEntities(sb, level, agent, entLevel == 1);
+        sections.add(sb.toString());
+
+        sb.setLength(0);
+        appendEnvironment(sb, level, pos, envLevel == 1);
+        sections.add(sb.toString());
+
+        sb.setLength(0);
         appendActions(sb, scan);
-        return sb.toString();
+        sections.add(sb.toString());
+
+        return sections;
     }
 
     // --- SELF ----------------------------------------------------------------
@@ -112,7 +161,7 @@ public final class AgentObservation {
 
     // --- PLAYERS --------------------------------------------------------------
 
-    private static void appendPlayers(StringBuilder sb, ServerLevel level, WorkshopAgentEntity agent) {
+    private static void appendPlayers(StringBuilder sb, ServerLevel level, WorkshopAgentEntity agent, boolean compact) {
         sb.append("[PLAYERS]");
         if (level.players().isEmpty()) {
             sb.append(" none");
@@ -121,6 +170,9 @@ public final class AgentObservation {
         for (ServerPlayer player : level.players()) {
             sb.append(' ').append(player.getName().getString());
             sb.append('@').append(dist(player.distanceTo(agent))).append('m');
+            if (compact) {
+                continue;
+            }
             sb.append(" hp=").append(Math.round(player.getHealth()));
             sb.append(" food=").append(player.getFoodData().getFoodLevel());
             sb.append(" held=").append(describeItem(player.getMainHandItem()));
@@ -193,17 +245,18 @@ public final class AgentObservation {
         }
     }
 
-    private static void appendNearbyBlocks(StringBuilder sb, BlockScan scan, BlockPos center) {
+    private static void appendNearbyBlocks(StringBuilder sb, BlockScan scan, BlockPos center, boolean compact) {
         sb.append("[NEARBY BLOCKS] total=").append(scan.total).append(" types=").append(scan.counts.size());
         if (!scan.counts.isEmpty()) {
             List<Map.Entry<String, Integer>> sorted = scan.counts.entrySet().stream()
                     .sorted(Map.Entry.<String, Integer>comparingByValue(Comparator.reverseOrder()))
                     .toList();
             sb.append(" top:");
+            int cap = compact ? BLOCK_TOP_CAP_COMPACT : BLOCK_TOP_CAP;
             int shown = 0;
             int other = 0;
             for (Map.Entry<String, Integer> entry : sorted) {
-                if (shown < 8) {
+                if (shown < cap) {
                     if (shown > 0) {
                         sb.append(',');
                     }
@@ -234,7 +287,7 @@ public final class AgentObservation {
 
     // --- NEARBY ENTITIES ---------------------------------------------------------
 
-    private static void appendEntities(StringBuilder sb, ServerLevel level, WorkshopAgentEntity agent) {
+    private static void appendEntities(StringBuilder sb, ServerLevel level, WorkshopAgentEntity agent, boolean compact) {
         sb.append("[NEARBY ENTITIES]");
         List<Entity> nearby = level.getEntities(agent, agent.getBoundingBox().inflate(SCAN_RADIUS), Entity::isAlive);
 
@@ -255,17 +308,17 @@ public final class AgentObservation {
         }
 
         sb.append(" agents=").append(agents.size());
-        if (!agents.isEmpty()) {
+        if (!agents.isEmpty() && !compact) {
             WorkshopAgentEntity nearest = nearest(agents, agent);
             sb.append('(').append(nearest.currentTask()).append('@')
                     .append(dist(nearest.distanceTo(agent))).append("m)");
         }
         sb.append(" villagers=").append(villagers.size());
-        if (!villagers.isEmpty()) {
+        if (!villagers.isEmpty() && !compact) {
             sb.append('@').append(dist(nearest(villagers, agent).distanceTo(agent))).append('m');
         }
         sb.append(" hostiles=").append(hostiles.size());
-        if (!hostiles.isEmpty()) {
+        if (!hostiles.isEmpty() && !compact) {
             hostiles.sort(Comparator.comparingDouble(e -> e.distanceTo(agent)));
             sb.append(' ');
             for (int i = 0; i < hostiles.size() && i < 3; i++) {
@@ -295,13 +348,19 @@ public final class AgentObservation {
 
     // --- ENVIRONMENT ---------------------------------------------------------
 
-    private static void appendEnvironment(StringBuilder sb, ServerLevel level, BlockPos pos) {
+    private static void appendEnvironment(StringBuilder sb, ServerLevel level, BlockPos pos, boolean compact) {
         long time = level.getDayTime() % 24000;
+        String day = level.isDay() ? "day" : "night";
+        if (compact) {
+            sb.append("[ENVIRONMENT] time=").append(time).append('(').append(day).append(')')
+                    .append(" light=").append(level.getMaxLocalRawBrightness(pos));
+            return;
+        }
         String biome = level.getBiome(pos).unwrapKey().map(key -> shortId(key.location())).orElse("?");
         String weather = level.isThundering() ? "thunder" : level.isRaining() ? "rain" : "clear";
         sb.append("[ENVIRONMENT] dim=").append(shortId(level.dimension().location()))
                 .append(" biome=").append(biome)
-                .append(" time=").append(time).append(level.isDay() ? "(day)" : "(night)")
+                .append(" time=").append(time).append('(').append(day).append(')')
                 .append(" weather=").append(weather)
                 .append(" light=").append(level.getMaxLocalRawBrightness(pos));
     }
@@ -309,23 +368,23 @@ public final class AgentObservation {
     // --- AVAILABLE ACTIONS ---------------------------------------------------------
 
     /**
-     * The enumerated action space from the design brief, pre-filtered by nearby stations:
-     * {@code craft} requires a crafting table in range, {@code deposit_to}/{@code withdraw_from}
-     * require a chest (or barrel) in range.
+     * The enumerated action space from the design brief, pre-filtered by nearby stations and
+     * written in the compact short names ({@code craft} requires a crafting table in range,
+     * {@code deposit}/{@code withdraw} require a chest or barrel in range).
      */
     private static void appendActions(StringBuilder sb, BlockScan scan) {
         List<String> actions = new ArrayList<>(List.of(
-                "move_to(x,z)", "follow(player)", "gather(block)", "chop()", "mine(block)"));
+                "move(x,z)", "follow(player)", "gather(block)", "chop()", "mine(block)"));
         if (scan.craftingTables > 0) {
             actions.add("craft(item)");
         }
         actions.add("place(block)");
-        actions.add("build_step(blueprint)");
+        actions.add("build(blueprint)");
         if (scan.chests > 0) {
-            actions.add("deposit_to(chest)");
-            actions.add("withdraw_from(chest)");
+            actions.add("deposit(chest)");
+            actions.add("withdraw(chest)");
         }
-        actions.addAll(List.of("light_area()", "use(item)", "say(player,msg)", "rest()", "claim_task(board)"));
+        actions.addAll(List.of("light()", "use(item)", "say(player,msg)", "rest()", "claim()"));
         sb.append("[AVAILABLE ACTIONS] ").append(String.join(", ", actions));
     }
 

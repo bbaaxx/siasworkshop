@@ -1,12 +1,13 @@
 ---
 id: "publish-curseforge-1-0-2"
 title: "Publish v1.0.2 to CurseForge"
-status: "active"
+status: "complete"
 created: "2026-10-13"
-updated: "2026-10-13"
+updated: "2026-10-14"
 owner: ""
 tags: ["release","publishing","curseforge"]
 related_wiki: []
+priority: "medium"
 ---
 
 ## Objective
@@ -20,5 +21,6 @@ Upload the v1.0.2 release (siasworkshop-1.21.1-1.0.2.jar + siasworkshop-1.20.1-1
 
 ## Progress Log
 - [2026-10-13T19:21:32.806Z] Created initiative via mdocs command
+- Closed at user confirmation 2026-10-14: v1.0.2 publishing was verified end-to-end (CF project 1735725 approved); no further upload work needed.
 
 ## Artifacts

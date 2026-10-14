@@ -29,7 +29,7 @@ public final class AgentsGameTest {
     public static void observationSnapshotHasAllSections(GameTestHelper helper) {
         WorkshopAgentEntity agent = spawnAgent(helper);
 
-        String snapshot = AgentObservation.build(agent);
+        String snapshot = AgentObservation.build(agent, 900);
 
         assertSection(helper, snapshot, "[SELF]");
         assertSection(helper, snapshot, "[PLAYERS]");
@@ -37,8 +37,8 @@ public final class AgentsGameTest {
         assertSection(helper, snapshot, "[NEARBY ENTITIES]");
         assertSection(helper, snapshot, "[ENVIRONMENT]");
         assertSection(helper, snapshot, "[AVAILABLE ACTIONS]");
-        helper.assertTrue(snapshot.contains("move_to"),
-                "AVAILABLE ACTIONS should always contain at least move_to:\n" + snapshot);
+        helper.assertTrue(snapshot.contains("move("),
+                "AVAILABLE ACTIONS should always contain at least move(x,z):\n" + snapshot);
         helper.succeed();
     }
 
@@ -75,7 +75,7 @@ public final class AgentsGameTest {
             helper.assertTrue(level.players().contains(player),
                     "mock server player must appear in level.players()");
 
-            String snapshot = AgentObservation.build(agent);
+            String snapshot = AgentObservation.build(agent, 900);
 
             assertSection(helper, snapshot, "[PLAYERS]");
             helper.assertFalse(snapshot.contains("[PLAYERS] none"),

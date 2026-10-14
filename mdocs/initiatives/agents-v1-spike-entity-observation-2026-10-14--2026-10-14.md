@@ -6,7 +6,7 @@ created: "2026-10-14"
 updated: "2026-10-14"
 owner: ""
 tags: ["agents","entities","observation","implementation","spike"]
-related_wiki: ["setup/gametest-notes-1-21-1"]
+related_wiki: ["setup/session-recovery-2026-10-14","setup/gametest-notes-1-21-1"]
 priority: "medium"
 ---
 

@@ -1,6 +1,6 @@
 {
   "currentStep": "COMPLETE",
-  "activeInitiative": null,
+  "activeInitiative": "agents-v1-decision-pool-goals--2026-10-14",
   "stepHistory": [
     {
       "step": "IDLE",
@@ -741,6 +741,42 @@
     {
       "step": "COMPLETE",
       "timestamp": "2026-10-14T06:43:00.402Z"
+    },
+    {
+      "step": "IDLE",
+      "timestamp": "2026-10-14T13:59:28.542Z"
+    },
+    {
+      "step": "UNDERSTAND",
+      "timestamp": "2026-10-14T13:59:28.543Z"
+    },
+    {
+      "step": "DISCOVER",
+      "timestamp": "2026-10-14T13:59:34.016Z"
+    },
+    {
+      "step": "CONTEXT",
+      "timestamp": "2026-10-14T13:59:34.047Z"
+    },
+    {
+      "step": "PLAN",
+      "timestamp": "2026-10-14T13:59:34.079Z"
+    },
+    {
+      "step": "EXECUTE",
+      "timestamp": "2026-10-14T14:00:43.464Z"
+    },
+    {
+      "step": "VERIFY",
+      "timestamp": "2026-10-14T14:56:29.455Z"
+    },
+    {
+      "step": "REPORT",
+      "timestamp": "2026-10-14T14:56:29.501Z"
+    },
+    {
+      "step": "COMPLETE",
+      "timestamp": "2026-10-14T14:58:47.459Z"
     }
   ]
 }

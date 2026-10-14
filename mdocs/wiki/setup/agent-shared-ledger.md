@@ -43,9 +43,9 @@ This page is the legitimate replacement, recreated with explicit user approval.
 
 | Task | Owner | Status | Since | Notes |
 | --- | --- | --- | --- | --- |
-| Agents v1 spike: hybrid entity + observation | coordinator→developer | in-progress | 2026-10-14 | initiative `agents-v1-spike-entity-observation--2026-10-14` |
-| Agents v1: decision pool + goals | coordinator→developer | active | 2026-10-14 | initiative `agents-v1-decision-pool-goals--2026-10-14`; scope grew: observation compression + verbatim debug output (SEQ-007) |
-| Agents v1: LLM client + build knowledge | — | pending | — | initiative `agents-v1-llm-build-knowledge--2026-10-14` |
+| Agents v1 spike: hybrid entity + observation | coordinator→developer | done | 2026-10-14 | committed as 8bfa3b8 |
+| Agents v1: decision pool + goals | coordinator→developer | done | 2026-10-14 | 16/16 gametests green; diff awaits user commit decision |
+| Agents v1: LLM client + build knowledge | — | pending | — | initiative `agents-v1-llm-build-knowledge--2026-10-14`; next per user queue |
 
 ## Decisions
 
@@ -65,6 +65,8 @@ This page is the legitimate replacement, recreated with explicit user approval.
 `SEQ-006 | 2026-10-14 | coordinator | RESOLVED | User live-tested the spike: summoned workshop_agent, used Agent Inspector, snapshot text confirmed rendering in chat. Spike accepted. Uncommitted diff awaits commit decision; next initiative to be picked by user (decision-pool-goals vs llm-build-knowledge).`
 
 `SEQ-007 | 2026-10-14 | coordinator | DISCUSS | User pasted a transcribed snapshot sample (~3 scrolls, transcription loss acknowledged). Calibration: observed snapshot ≈ 3× the ~450-token sample → ~1200-1500 tokens, over the 600-900 budget for 4B-class models. Noise confirmed even through OCR: inventory dumps per-slot entries instead of counts; POI lines repeat; action names verbose. Actions folded into agents-v1-decision-pool-goals scope: (0) observation compression pass with caps/knobs + budget gametest; (0.5) verbatim debug output — Inspector writes snapshot to a file on disk (chat transcription is lossy).`
+
+`SEQ-008 | 2026-10-14 | coordinator | RESOLVED | decision-pool-goals slice implemented + reviewed (builder → reviewer → fix cycle). Delivered: pool SavedData (schema v1, LRU cap, tag top-K, trusted≥N), task board (claim/lease/steal, claimant-verified complete/fail, reap 128 resolved), light+shelter detectors, SEQ-007 compression (bottom-up, ~chars/4 estimator, 900-token config default) + Inspector snapshot-to-file under debug/siasworkshop/. Review catch worth remembering: exposure checks must use canSeeSky, NOT getBrightness(SKY)>=15 — at night the latter returns 4 (moonlight) so the check is dead code (now in setup/gametest-notes-1-21-1). Also: lease expiry writes NO pool entry (a timeout is not a plan verdict); GameTest batches isolate time-pinning tests (shared batch world race). 16/16 gametests green. Follow-ups for the LLM initiative: task-execution loop that claims board tasks + cites pool entries via recordSuccess; currentTask() still the "idle" stub.`
 
 <!-- Agents: append new entries below this line, in SEQ order. -->
 

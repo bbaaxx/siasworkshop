@@ -6,7 +6,8 @@ created: "2026-10-14"
 updated: "2026-10-14"
 owner: ""
 tags: ["agents","llm","build","implementation"]
-related_wiki: []
+related_wiki: ["setup/session-recovery-2026-10-14"]
+priority: "medium"
 ---
 
 ## Objective

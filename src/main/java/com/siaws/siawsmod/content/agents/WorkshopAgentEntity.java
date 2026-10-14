@@ -65,7 +65,7 @@ public class WorkshopAgentEntity extends PathfinderMob {
         return inventory;
     }
 
-    /** Stub task label until the shared task board (design pillar 4) lands. Always "idle" for now. */
+    /** Stub task label until a task-execution loop claims board tasks (design pillar 4). Always "idle" for now. */
     public String currentTask() {
         return "idle";
     }

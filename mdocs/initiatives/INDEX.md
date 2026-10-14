@@ -2,7 +2,7 @@
 
 - **Agent embodiment + world-state observation design** (done) — agent-embodiment-observation-2026-10-13--2026-10-14.md — 2026-10-14 — [design, llm, agents, entities, observation]
 - **Agent shared ledger page (proper recovery)** (done) — agent-shared-ledger-setup-2026-10-14--2026-10-14.md — 2026-10-14 — [tooling, agents, coordination, process]
-- **Agents v1: shared decision pool + task board + comfort goals** (active) — agents-v1-decision-pool-goals-2026-10-14--2026-10-14.md — 2026-10-14 — [agents, decision-pool, goals, implementation]
+- **Agents v1: shared decision pool + task board + comfort goals** (complete) — agents-v1-decision-pool-goals-2026-10-14--2026-10-14.md — 2026-10-14 — [agents, decision-pool, goals, implementation]
 - **Agents v1: LLM client + build knowledge** (active) — agents-v1-llm-build-knowledge-2026-10-14--2026-10-14.md — 2026-10-14 — [agents, llm, build, implementation]
 - **Agents v1 spike: hybrid entity + observation snapshot** (done) — agents-v1-spike-entity-observation-2026-10-14--2026-10-14.md — 2026-10-14 — [agents, entities, observation, implementation, spike]
 - **Backport end-game tool recipes to 1.20.1 (final 1.20.x release)** (done) — backport-recipes-1-20-1--2026-10-10.md — 2026-10-10 — [backport, recipes, datagen, release]
@@ -20,7 +20,7 @@
 - **Research open-source mod ecosystem** (done) — mod-ecosystem-research--2026-10-07.md — 2026-10-07 — []
 - **Multi-version release setup: 1.20.1 + 1.21.1** (done) — multi-version-release-setup-1-20-1-1-21-1--2026-10-08.md — 2026-10-08 — [tooling, release, backport, ci]
 - **Scaffold project structure and dev loop** (done) — project-scaffolding--2026-10-07.md — 2026-10-07 — []
-- **Publish v1.0.2 to CurseForge** (active) — publish-curseforge-1-0-2--2026-10-13.md — 2026-10-13 — [release, publishing, curseforge]
+- **Publish v1.0.2 to CurseForge** (complete) — publish-curseforge-1-0-2--2026-10-13.md — 2026-10-13 — [release, publishing, curseforge]
 - **Publish v1.0.0 to CurseForge** (done) — publish-to-curseforge--2026-10-09.md — 2026-10-09 — [release, publishing, curseforge]
 - **Release v1.0.2: end-game recipes on 1.21.1 + 1.20.1** (done) — release-1-0-2--2026-10-12.md — 2026-10-12 — [release, 1.20.1, recipes]
 - **Village tools: wilderness compass + village foundation block** (done) — village-tools-wilderness-compass-village-foundation-block--2026-10-08.md — 2026-10-08 — [villages, items, blocks, gui, worldgen]

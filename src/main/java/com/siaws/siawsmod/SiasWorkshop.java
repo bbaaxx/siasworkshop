@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
 import com.siaws.siawsmod.config.Config;
+import com.siaws.siawsmod.content.agents.tasks.ComfortDetectors;
 import com.siaws.siawsmod.data.ModDataGenerators;
 import com.siaws.siawsmod.init.SiasWorkshopBlockEntities;
 import com.siaws.siawsmod.init.SiasWorkshopBlocks;
@@ -18,6 +19,7 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
+import net.neoforged.neoforge.common.NeoForge;
 
 @Mod(SiasWorkshop.MODID)
 public class SiasWorkshop {
@@ -36,6 +38,8 @@ public class SiasWorkshop {
         modEventBus.addListener(SiasWorkshopEntities::registerAttributes);
 
         modEventBus.addListener(ModDataGenerators::gatherData);
+
+        NeoForge.EVENT_BUS.addListener(ComfortDetectors::onServerTick);
 
         modContainer.registerConfig(ModConfig.Type.SERVER, Config.SPEC);
     }
