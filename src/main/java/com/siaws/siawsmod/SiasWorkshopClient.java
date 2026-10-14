@@ -1,7 +1,9 @@
 package com.siaws.siawsmod;
 
+import com.siaws.siawsmod.content.agents.client.WorkshopAgentRenderer;
 import com.siaws.siawsmod.content.village.client.VillageFoundationScreen;
 import com.siaws.siawsmod.content.village.client.WildernessCompassPropertyFunction;
+import com.siaws.siawsmod.init.SiasWorkshopEntities;
 import com.siaws.siawsmod.init.SiasWorkshopItems;
 import com.siaws.siawsmod.init.SiasWorkshopMenus;
 
@@ -13,6 +15,7 @@ import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
+import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import net.neoforged.neoforge.client.gui.ConfigurationScreen;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
@@ -35,5 +38,10 @@ public class SiasWorkshopClient {
     @SubscribeEvent
     static void onMenuScreens(RegisterMenuScreensEvent event) {
         event.register(SiasWorkshopMenus.VILLAGE_FOUNDATION.get(), VillageFoundationScreen::new);
+    }
+
+    @SubscribeEvent
+    static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
+        event.registerEntityRenderer(SiasWorkshopEntities.WORKSHOP_AGENT.get(), WorkshopAgentRenderer::new);
     }
 }

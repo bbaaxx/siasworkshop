@@ -9,6 +9,7 @@ import com.siaws.siawsmod.init.SiasWorkshopBlockEntities;
 import com.siaws.siawsmod.init.SiasWorkshopBlocks;
 import com.siaws.siawsmod.init.SiasWorkshopCreativeTabs;
 import com.siaws.siawsmod.init.SiasWorkshopDataComponents;
+import com.siaws.siawsmod.init.SiasWorkshopEntities;
 import com.siaws.siawsmod.init.SiasWorkshopItems;
 import com.siaws.siawsmod.init.SiasWorkshopMenus;
 import com.siaws.siawsmod.init.SiasWorkshopStructureProcessors;
@@ -31,6 +32,8 @@ public class SiasWorkshop {
         SiasWorkshopDataComponents.DATA_COMPONENT_TYPES.register(modEventBus);
         SiasWorkshopBlockEntities.BLOCK_ENTITY_TYPES.register(modEventBus);
         SiasWorkshopMenus.MENUS.register(modEventBus);
+        SiasWorkshopEntities.ENTITY_TYPES.register(modEventBus);
+        modEventBus.addListener(SiasWorkshopEntities::registerAttributes);
 
         modEventBus.addListener(ModDataGenerators::gatherData);
 

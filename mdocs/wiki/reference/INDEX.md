@@ -1,5 +1,6 @@
 # reference
 
+- [Agent Embodiment, Observation Schema, and Shared Decision Pool](agent-embodiment-observation.md)
 - [BiggerReactors](biggerreactors.md)
 - [Bookshelf](bookshelf.md)
 - [Botania](botania.md)
@@ -8,5 +9,7 @@
 - [Ender IO](enderio.md)
 - [GeckoLib](geckolib.md)
 - [HarvestCraft](harvestcraft.md)
+- [Minecraft × LLM Integration Landscape](llm-minecraft-landscape.md)
+- [Local Small LLM Feasibility (Qwen3-class, 4-bit, Apple M3 Pro)](local-llm-feasibility.md)
 - [Minecraft Comes Alive (MCA)](mca.md)
 - [CoFH Thermal Series](thermal-series.md)

@@ -1,6 +1,7 @@
 package com.siaws.siawsmod.init;
 
 import com.siaws.siawsmod.SiasWorkshop;
+import com.siaws.siawsmod.content.agents.AgentInspectorItem;
 import com.siaws.siawsmod.content.village.WildernessCompassItem;
 
 import net.minecraft.world.item.BlockItem;
@@ -18,4 +19,8 @@ public final class SiasWorkshopItems {
 
     public static final DeferredItem<Item> WILDERNESS_COMPASS = ITEMS.registerItem("wilderness_compass",
             WildernessCompassItem::new, new Item.Properties().stacksTo(1));
+
+    /** Debug-only; gated at use time by agents.debugInspector (see Config). Not in any creative tab. */
+    public static final DeferredItem<AgentInspectorItem> AGENT_INSPECTOR = ITEMS.registerItem("agent_inspector",
+            AgentInspectorItem::new, new Item.Properties().stacksTo(1));
 }

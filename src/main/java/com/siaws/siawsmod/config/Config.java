@@ -15,5 +15,10 @@ public class Config {
                     "Only affects newly generated chunks; existing chunks are never retrofitted.")
             .define("cherryfyVillages", false);
 
+    public static final ModConfigSpec.BooleanValue AGENTS_DEBUG_INSPECTOR = BUILDER
+            .comment("Enable the Agent Inspector debug item: right-click a workshop agent to print its",
+                    "observation snapshot to the acting player's chat and the server log. Debug tooling only.")
+            .define("agents.debugInspector", true);
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 }

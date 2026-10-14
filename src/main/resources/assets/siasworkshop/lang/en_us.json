@@ -8,6 +8,12 @@
   "item.siasworkshop.wilderness_compass.near": "too close to build here (need %s blocks of separation)",
   "item.siasworkshop.wilderness_compass.tracking": "Tracking village at %s, %s — needle points away",
 
+  "item.siasworkshop.agent_inspector": "Agent Inspector",
+  "item.siasworkshop.agent_inspector.hint": "Right-click a workshop agent to print its observation snapshot",
+  "item.siasworkshop.agent_inspector.disabled": "Agent Inspector is disabled (agents.debugInspector = false)",
+
+  "entity.siasworkshop.workshop_agent": "Workshop Agent",
+
   "block.siasworkshop.village_foundation": "Village Foundation",
   "block.siasworkshop.village_foundation.success": "Village created",
   "block.siasworkshop.village_foundation.too_close": "Too close to an existing village (minimum separation is %s blocks)",

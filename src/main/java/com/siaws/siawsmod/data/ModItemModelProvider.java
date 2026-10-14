@@ -20,5 +20,10 @@ public class ModItemModelProvider extends ItemModelProvider {
             withExistingParent(name, mcLoc("item/generated"))
                     .texture("layer0", modLoc("item/" + name));
         }
+
+        // Debug-only inspector. Placeholder art: vanilla spyglass texture until final art
+        // (docs/art/texture-specs.md) delivers agent_inspector.png file-for-file.
+        withExistingParent("agent_inspector", mcLoc("item/generated"))
+                .texture("layer0", mcLoc("item/spyglass"));
     }
 }
