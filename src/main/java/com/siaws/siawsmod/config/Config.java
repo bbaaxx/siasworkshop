@@ -79,14 +79,15 @@ public class Config {
             .define("llm.model", "prism-ml/bonsai-27b");
 
     public static final ModConfigSpec.IntValue LLM_TIMEOUT_SECONDS = BUILDER
-            .comment("HTTP timeout for one LLM request; on timeout the agent falls back to templates.")
-            .defineInRange("llm.timeoutSeconds", 30, 1, 120);
+            .comment("HTTP timeout for one LLM request; reasoning models on a loaded machine can",
+                    "take a minute or more. On timeout the agent falls back to templates.")
+            .defineInRange("llm.timeoutSeconds", 120, 1, 120);
 
     public static final ModConfigSpec.IntValue LLM_MAX_TOKENS = BUILDER
             .comment("max_tokens for the decision request. Reasoning models can spend most of",
                     "the budget on hidden reasoning before emitting the final JSON, so keep",
                     "this generous; the answer itself is one small JSON object.")
-            .defineInRange("llm.maxTokens", 512, 16, 512);
+            .defineInRange("llm.maxTokens", 1024, 16, 2048);
 
     public static final ModConfigSpec.DoubleValue LLM_TEMPERATURE = BUILDER
             .comment("Sampling temperature for the decision request.")

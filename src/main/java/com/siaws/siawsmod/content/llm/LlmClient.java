@@ -127,10 +127,19 @@ public final class LlmClient {
             String content = root.getAsJsonArray("choices").get(0).getAsJsonObject()
                     .getAsJsonObject("message").get("content").getAsString();
             JsonObject json = LlmActions.parseJsonObject(content);
-            return json != null ? LlmResult.ok(json) : LlmResult.failed("bad_json");
+            return json != null ? LlmResult.ok(json) : LlmResult.failed("bad_json:" + preview(content));
         } catch (RuntimeException e) {
             return LlmResult.failed("missing_fields");
         }
+    }
+
+    /** One-line, length-capped preview of a model reply for WARN logs (whitespace flattened). */
+    private static String preview(String content) {
+        if (content == null) {
+            return "<null>";
+        }
+        String flattened = content.replaceAll("\\s+", " ").strip();
+        return flattened.length() <= 200 ? flattened : flattened.substring(0, 200) + "...";
     }
 
     private static Throwable rootCause(Throwable throwable) {
