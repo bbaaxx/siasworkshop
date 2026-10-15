@@ -44,3 +44,4 @@ repo/
 node_modules/
 
 .env
+.tmp/
