@@ -214,6 +214,49 @@ public class TaskBoard extends SavedData {
         return tasks.get(task.id());
     }
 
+    /**
+     * Clean unclaim: CLAIMED → OPEN with claimant and lease cleared. Used when the claimant
+     * cannot proceed (e.g. no torches in inventory) — nothing was attempted, so no pool entry.
+     * Only the claimant may release.
+     */
+    public boolean release(String taskId, UUID claimantUuid, long now) {
+        BoardTask task = tasks.get(taskId);
+        if (task == null || task.status() != BoardTask.Status.CLAIMED
+                || !claimantUuid.equals(task.claimantUuid())) {
+            return false;
+        }
+        tasks.put(taskId, task.transitioned(BoardTask.Status.OPEN, null, 0, task.resolvedAtGameTime(), null));
+        setDirty();
+        return true;
+    }
+
+    /**
+     * Extends the lease of a CLAIMED task the claimant still holds — long-running executions
+     * (builds) renew while they work so the sweeper never sees a stalled claim. The new lease
+     * runs {@code leaseTicks} from {@code now} (not stacked on the old one).
+     */
+    public boolean renewLease(String taskId, UUID claimantUuid, long leaseTicks, long now) {
+        BoardTask task = tasks.get(taskId);
+        if (task == null || task.status() != BoardTask.Status.CLAIMED
+                || !claimantUuid.equals(task.claimantUuid())) {
+            return false;
+        }
+        tasks.put(taskId, task.transitioned(BoardTask.Status.CLAIMED, claimantUuid, now + leaseTicks, 0, null));
+        setDirty();
+        return true;
+    }
+
+    /** The tasks currently claimed by {@code claimantUuid}, in board order. */
+    public List<BoardTask> claimedBy(UUID claimantUuid) {
+        List<BoardTask> claimed = new java.util.ArrayList<>();
+        for (BoardTask task : tasks.values()) {
+            if (task.status() == BoardTask.Status.CLAIMED && claimantUuid.equals(task.claimantUuid())) {
+                claimed.add(task);
+            }
+        }
+        return claimed;
+    }
+
     // --- NBT ----------------------------------------------------------------
 
     @Override

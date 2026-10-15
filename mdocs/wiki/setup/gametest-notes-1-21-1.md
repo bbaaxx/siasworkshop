@@ -68,6 +68,34 @@ Hard-won facts from wiring the first GameTests in this repo (agents v1 spike,
   night-time skydarken only in `LevelLightEngine.getRawBrightness` — so at
   night the latter returns 4 and a `>= 15` exposure test is silently dead
   code. `Level#canSeeSky(pos)` is the true exposure check at any time of day.
+- **The GameTest world PERSISTS between `runGameTestServer` runs** (SavedData,
+  entities, and blocks outside template footprints survive in `run/`). This
+  made loop tests order-dependent: old board tasks, placed torches, and dead
+  agents leaked into the next run. Fix in `build.gradle`: the gameTestServer
+  run uses its own `gameDirectory = run-gametest/`, a `doFirst` wipes
+  `run-gametest/world` (config-cache-safe: capture `layout.projectDirectory`
+  refs, use `File.deleteDir()` — `file()`/`delete` at execution time break
+  the configuration cache), and seeds `world/serverconfig/siasworkshop-server.toml`
+  (SERVER-type configs live in the world dir, so they must be re-seeded after
+  every wipe).
+- **`GameTestHelper.onEachTick` is not incremental.** It pre-registers the
+  runnable at EVERY remaining tick via `setRunAtTickTime` (a fastutil
+  Object2LongOpenHashMap). Calling it from inside a delayed callback mutates
+  that map mid-iteration → `NullPointerException: wrapped is null` in
+  `GameTestInfo.tickInternal`. Register at test-body time only (guard with
+  flags until the test phase arms), or use self-rescheduling `runAfterDelay`.
+- **The framework wraps structures in barrier blocks** — frames/platforms
+  that satisfy the light detector's "air + rigid floor + no sky" criteria at
+  the edges of a radius-8 scan. Any gametest asserting "deficit == 0" must
+  either enclose the whole scan volume or shrink the scan (we seed
+  `agents.lightScanRadius = 3` for the gametest server).
+- **Production tick handlers run concurrently with manually-driven tests.**
+  The mod's real `ServerTickEvent` handlers (detectors, decision loop) fire
+  during gametests, so tasks can be raised/claimed/completed between a test's
+  explicit calls. Assert on resolved state (DONE retains claimantUuid — proof
+  of who claimed it), poll with body-time-registered callbacks, pass a
+  claim-key filter seam to the loop, and pin `agents.decisionIntervalSeconds`
+  high in the seeded TOML so the global decision pass can't fire mid-test.
 - **SavedData in 21.1.256:** construct with
   `new SavedData.Factory<>(Supplier, BiFunction<CompoundTag, HolderLookup.Provider, T>, @Nullable DataFixTypes)`;
   per-entry NBT parsing should try/catch-skip malformed entries (one bad tag

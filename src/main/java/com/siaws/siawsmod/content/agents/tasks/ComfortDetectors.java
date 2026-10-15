@@ -51,7 +51,7 @@ public final class ComfortDetectors {
         }
     }
 
-    /** One full pass for one level: lease sweep, then both detectors for every player in it. */
+    /** One full pass for one level: lease sweep, orphan cleanup, then both detectors for every player in it. */
     public static void runOnce(ServerLevel level) {
         long now = level.getGameTime();
         TaskBoard board = AgentWorldData.board(level);
@@ -59,6 +59,7 @@ public final class ComfortDetectors {
         int poolMaxEntries = Config.AGENTS_POOL_MAX_ENTRIES.get();
 
         board.sweepLeases(now);
+        clearOrphanedComfortTasks(level, board);
         if (level.players().isEmpty()) {
             return;
         }
@@ -70,6 +71,26 @@ public final class ComfortDetectors {
             runLightDetector(level, board, pool, poolMaxEntries, player, pos, now, lightRadius, lightThreshold);
             if (!level.isDay()) {
                 runShelterDetector(level, board, pool, poolMaxEntries, player, pos, now, shelterRadius);
+            }
+        }
+    }
+
+    /** OPEN comfort tasks whose player left the level are stale — remove them (CLAIMED ones expire via lease). */
+    private static void clearOrphanedComfortTasks(ServerLevel level, TaskBoard board) {
+        for (BoardTask task : board.tasks()) {
+            if (task.status() != BoardTask.Status.OPEN
+                    || (task.type() != BoardTask.Type.COMFORT_LIGHT && task.type() != BoardTask.Type.COMFORT_SHELTER)) {
+                continue;
+            }
+            boolean online = false;
+            for (ServerPlayer player : level.players()) {
+                if (task.key().endsWith(":" + player.getUUID())) {
+                    online = true;
+                    break;
+                }
+            }
+            if (!online) {
+                board.clearIfOpen(task.key());
             }
         }
     }

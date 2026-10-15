@@ -72,6 +72,29 @@ neoForge {
         gameTestServer {
             type = "gameTestServer"
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            // Dedicated dir: never share world/config state with the dev client/server runs —
+            // gametest SavedData, placed blocks outside template footprints, and config toggles
+            // must not leak between runs (accumulated state made loop tests order-dependent).
+            gameDirectory = project.file('run-gametest')
+        }
+
+        tasks.named('runGameTestServer') {
+            def gametestWorld = layout.projectDirectory.dir('run-gametest/world')
+            def gametestServerConfig = layout.projectDirectory.file(
+                    'run-gametest/world/serverconfig/siasworkshop-server.toml')
+            doFirst {
+                gametestWorld.asFile.deleteDir()
+                // Deterministic detector geometry: the GameTest framework wraps structures in
+                // barrier frames that the light detector counts as spawnable-dark floors. A
+                // tiny scan radius keeps scans inside test-authored structures.
+                gametestServerConfig.asFile.parentFile.mkdirs()
+                gametestServerConfig.asFile.text = '''\
+# Deterministic detector geometry: tiny scan radius keeps scans inside test-authored structures.
+agents.lightScanRadius = 3
+# The global decision pass must not fire mid-test; loop tests drive runOnce directly.
+agents.decisionIntervalSeconds = 600
+'''
+            }
         }
 
         data {

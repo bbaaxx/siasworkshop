@@ -37,6 +37,8 @@ public class WorkshopAgentEntity extends PathfinderMob {
 
     private static final EntityDataAccessor<Optional<UUID>> DATA_OWNER_UUID =
             SynchedEntityData.defineId(WorkshopAgentEntity.class, EntityDataSerializers.OPTIONAL_UUID);
+    private static final EntityDataAccessor<String> DATA_TASK_LABEL =
+            SynchedEntityData.defineId(WorkshopAgentEntity.class, EntityDataSerializers.STRING);
 
     /** Agent storage; the observation snapshot renders an inventory summary from this. */
     private final SimpleContainer inventory = new SimpleContainer(INVENTORY_SIZE);
@@ -65,9 +67,20 @@ public class WorkshopAgentEntity extends PathfinderMob {
         return inventory;
     }
 
-    /** Stub task label until a task-execution loop claims board tasks (design pillar 4). Always "idle" for now. */
+    /**
+     * The task label shown in the observation snapshot: the board key of the task this agent
+     * currently claims (set by the decision loop), or "idle". Synched to clients; session-
+     * scoped — not persisted, so a reloaded world starts agents at "idle" while the board's
+     * lease sweep cleans up stale claims.
+     */
     public String currentTask() {
-        return "idle";
+        String label = this.entityData.get(DATA_TASK_LABEL);
+        return label.isEmpty() ? "idle" : label;
+    }
+
+    /** Sets the claimed-task label ("" = idle). Called by the decision loop. */
+    public void setCurrentTaskLabel(String label) {
+        this.entityData.set(DATA_TASK_LABEL, label == null ? "" : label);
     }
 
     /**
@@ -91,6 +104,7 @@ public class WorkshopAgentEntity extends PathfinderMob {
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         super.defineSynchedData(builder);
         builder.define(DATA_OWNER_UUID, Optional.empty());
+        builder.define(DATA_TASK_LABEL, "");
     }
 
     @Override

@@ -61,5 +61,61 @@ public class Config {
                     "bottom-up in salience order until the estimate fits. SELF and AVAILABLE ACTIONS always survive.")
             .defineInRange("agents.observationBudgetTokens", 900, 100, 10000);
 
+    public static final ModConfigSpec.BooleanValue LLM_ENABLED = BUILDER
+            .comment("Enable the local LLM endpoint for agent decisions (OpenAI-compatible chat API,",
+                    "e.g. LM Studio or Ollama). Offline-first: when disabled or unreachable, agents fall",
+                    "back to built-in template behavior with no player-visible errors.")
+            .define("llm.enabled", false);
+
+    public static final ModConfigSpec.ConfigValue<String> LLM_ENDPOINT = BUILDER
+            .comment("Base URL of the OpenAI-compatible endpoint (no trailing path).")
+            .define("llm.endpoint", "http://localhost:1234/v1");
+
+    public static final ModConfigSpec.ConfigValue<String> LLM_MODEL = BUILDER
+            .comment("Model id passed to the endpoint; must match a model the endpoint serves.")
+            .define("llm.model", "prism-ml/bonsai-27b");
+
+    public static final ModConfigSpec.IntValue LLM_TIMEOUT_SECONDS = BUILDER
+            .comment("HTTP timeout for one LLM request; on timeout the agent falls back to templates.")
+            .defineInRange("llm.timeoutSeconds", 30, 1, 120);
+
+    public static final ModConfigSpec.IntValue LLM_MAX_TOKENS = BUILDER
+            .comment("max_tokens for the decision request: the answer is one small JSON object.")
+            .defineInRange("llm.maxTokens", 64, 16, 512);
+
+    public static final ModConfigSpec.DoubleValue LLM_TEMPERATURE = BUILDER
+            .comment("Sampling temperature for the decision request.")
+            .defineInRange("llm.temperature", 0.3, 0.0, 2.0);
+
+    public static final ModConfigSpec.BooleanValue AGENTS_EXECUTION_LOOP_ENABLED = BUILDER
+            .comment("Master toggle for the agent decision/execution loop: idle agents claim task-board",
+                    "tasks (template fallback, or LLM-picked when llm.enabled) and execute them.")
+            .define("agents.executionLoopEnabled", true);
+
+    public static final ModConfigSpec.IntValue AGENTS_DECISION_INTERVAL_SECONDS = BUILDER
+            .comment("How often idle agents run a decision pass (observe, retrieve, pick), in",
+                    "seconds. Executing an already-claimed task runs every tick regardless.")
+            .defineInRange("agents.decisionIntervalSeconds", 30, 5, 600);
+
+    public static final ModConfigSpec.IntValue AGENTS_TASK_LEASE_TICKS = BUILDER
+            .comment("Lease length an agent takes on a claimed task, in ticks (20 ticks = 1 second);",
+                    "renewed while the task is being executed.")
+            .defineInRange("agents.taskLeaseTicks", 200, 20, 24000);
+
+    public static final ModConfigSpec.IntValue AGENTS_PLACE_PER_CYCLE = BUILDER
+            .comment("How many blocks one agent places per execution cycle.")
+            .defineInRange("agents.placePerCycle", 1, 1, 64);
+
+    public static final ModConfigSpec.IntValue AGENTS_STATION_RADIUS = BUILDER
+            .comment("How far from a build anchor the agent searches chests for build materials.")
+            .defineInRange("agents.stationRadius", 16, 4, 64);
+
+    public static final ModConfigSpec.IntValue AGENTS_GUARD_RADIUS = BUILDER
+            .comment("Guardrail: agents may only place blocks within this radius of the task anchor",
+                    "(the deficit player for comfort tasks, the blueprint anchor for builds). Keep this",
+                    ">= agents.lightScanRadius, or light-deficit targets near the scan edge fall",
+                    "outside the guard and the task can never execute.")
+            .defineInRange("agents.guardRadius", 32, 4, 128);
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 }
