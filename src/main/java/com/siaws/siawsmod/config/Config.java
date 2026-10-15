@@ -68,8 +68,11 @@ public class Config {
             .define("llm.enabled", false);
 
     public static final ModConfigSpec.ConfigValue<String> LLM_ENDPOINT = BUILDER
-            .comment("Base URL of the OpenAI-compatible endpoint (no trailing path).")
-            .define("llm.endpoint", "http://localhost:1234/v1");
+            .comment("Base URL of the OpenAI-compatible endpoint (no trailing path). Prefer",
+                    "127.0.0.1 over localhost: dev launchers set -Djava.net.preferIPv6Addresses=system,",
+                    "so localhost may resolve to ::1 first and java.net.http can fail to fall back",
+                    "(ClosedChannelException) — while LM Studio binds 127.0.0.1 only.")
+            .define("llm.endpoint", "http://127.0.0.1:1234/v1");
 
     public static final ModConfigSpec.ConfigValue<String> LLM_MODEL = BUILDER
             .comment("Model id passed to the endpoint; must match a model the endpoint serves.")

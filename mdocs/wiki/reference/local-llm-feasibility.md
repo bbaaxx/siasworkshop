@@ -156,9 +156,12 @@ Findings from the live smoke test of `content/llm/LlmClient` against LM Studio
 - **Models wrap JSON in markdown code fences despite "JSON only" instructions.**
   The parser must extract the first `{...}` span, not require the body to start
   with `{`.
-- **LM Studio binds 127.0.0.1 only (IPv4)**; `localhost` may resolve to ::1
-  first. The endpoint default uses localhost and worked on this machine, but if
-  a setup ever fails to connect at all, `127.0.0.1` is the first thing to try.
+- **LM Studio binds 127.0.0.1 only (IPv4), and `localhost` is unsafe in modded
+  JVMs.** Dev launchers (ModDevGradle runClient, CurseForge) set
+  `-Djava.net.preferIPv6Addresses=system`; with it, `localhost` resolves to ::1
+  first and java.net.http fails fast with ClosedChannelException instead of
+  falling back to IPv4 (reproduced standalone with the same flag; without the
+  flag it silently works). The endpoint default is therefore `127.0.0.1`.
 - **Failures must be visible in latest.log at INFO/WARN, not DEBUG.** Silent
   fallback made every issue above look like "the LLM was never called". The
   decision loop now logs LLM decisions and task claims at INFO, fallback
