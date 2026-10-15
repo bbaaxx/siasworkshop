@@ -36,9 +36,9 @@ public final class AgentsGameTest {
         assertSection(helper, snapshot, "[NEARBY BLOCKS]");
         assertSection(helper, snapshot, "[NEARBY ENTITIES]");
         assertSection(helper, snapshot, "[ENVIRONMENT]");
-        assertSection(helper, snapshot, "[AVAILABLE ACTIONS]");
+        assertSection(helper, snapshot, "[CAPABILITIES once working a task]");
         helper.assertTrue(snapshot.contains("move("),
-                "AVAILABLE ACTIONS should always contain at least move(x,z):\n" + snapshot);
+                "CAPABILITIES once working a task should always contain at least move(x,z):\n" + snapshot);
         helper.succeed();
     }
 

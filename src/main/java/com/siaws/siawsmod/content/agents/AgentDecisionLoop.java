@@ -184,7 +184,7 @@ public final class AgentDecisionLoop {
         }
         String observation = AgentObservation.build(agent, Config.AGENTS_OBSERVATION_BUDGET_TOKENS.get());
         List<BuildCard> cards = cardsFor(open);
-        String user = LlmPrompts.userPrompt(observation,
+        String user = LlmPrompts.userPrompt(observation, open,
                 retrieved.stream().map(LlmPrompts::poolSummaryLine).toList(), cards);
         try {
             LlmClient.request(level.getServer(), LlmPrompts.systemLine(), user,

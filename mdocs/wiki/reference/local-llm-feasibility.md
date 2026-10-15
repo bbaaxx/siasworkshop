@@ -162,6 +162,10 @@ Findings from the live smoke test of `content/llm/LlmClient` against LM Studio
   first and java.net.http fails fast with ClosedChannelException instead of
   falling back to IPv4 (reproduced standalone with the same flag; without the
   flag it silently works). The endpoint default is therefore `127.0.0.1`.
+- **Cloud providers need an API key.** `llm.apiKey` (default empty) is sent as an
+  `Authorization: Bearer` header when non-blank; empty means no header, which is
+  what local endpoints (LM Studio, Ollama) expect. To switch to a cloud model,
+  only the config changes: `endpoint`, `model`, `apiKey`.
 - **Failures must be visible in latest.log at INFO/WARN, not DEBUG.** Silent
   fallback made every issue above look like "the LLM was never called". The
   decision loop now logs LLM decisions and task claims at INFO, fallback

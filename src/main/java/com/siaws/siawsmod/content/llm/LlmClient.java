@@ -67,7 +67,8 @@ public final class LlmClient {
      */
     public static void request(MinecraftServer server, String system, String user, Consumer<LlmResult> callback) {
         requestRaw(Config.LLM_ENDPOINT.get(), Config.LLM_MODEL.get(), Config.LLM_TIMEOUT_SECONDS.get(),
-                Config.LLM_MAX_TOKENS.get(), Config.LLM_TEMPERATURE.get().floatValue(), system, user)
+                Config.LLM_MAX_TOKENS.get(), Config.LLM_TEMPERATURE.get().floatValue(),
+                Config.LLM_API_KEY.get(), system, user)
                 .thenAccept(result -> server.execute(() -> callback.accept(result)));
     }
 
@@ -76,7 +77,7 @@ public final class LlmClient {
      * against a loopback stub. Explicit parameters instead of config so tests can inject.
      */
     public static CompletableFuture<LlmResult> requestRaw(String endpoint, String model, int timeoutSeconds,
-            int maxTokens, float temperature, String system, String user) {
+            int maxTokens, float temperature, String apiKey, String system, String user) {
         JsonObject body = new JsonObject();
         body.addProperty("model", model);
         body.addProperty("temperature", temperature);
@@ -91,11 +92,13 @@ public final class LlmClient {
 
         final HttpRequest request;
         try {
-            request = HttpRequest.newBuilder(URI.create(endpoint + "/chat/completions"))
+            HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(endpoint + "/chat/completions"))
                     .timeout(Duration.ofSeconds(timeoutSeconds))
-                    .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(body.toString()))
-                    .build();
+                    .header("Content-Type", "application/json");
+            if (apiKey != null && !apiKey.isBlank()) {
+                builder = builder.header("Authorization", "Bearer " + apiKey);
+            }
+            request = builder.POST(HttpRequest.BodyPublishers.ofString(body.toString())).build();
         } catch (RuntimeException e) {
             // malformed endpoint/timeout config must fail the request, never throw on the caller
             return CompletableFuture.completedFuture(LlmResult.failed("bad_endpoint"));

@@ -37,7 +37,7 @@ import net.minecraft.world.level.block.state.BlockState;
  * is near). The budget ({@code agents.observationBudgetTokens}) is enforced by compressing
  * sections bottom-up in salience order: ENVIRONMENT shrinks to a one-liner first, then
  * NEARBY ENTITIES to counts only, then NEARBY BLOCKS to a truncated top-list, then PLAYERS
- * to name@distance. SELF and AVAILABLE ACTIONS always survive.
+ * to name@distance. SELF and CAPABILITIES always survive.
  *
  * <p>Helpers take plain (level, position, …) arguments where practical so they stay pure
  * enough to unit-test without an entity.
@@ -365,12 +365,13 @@ public final class AgentObservation {
                 .append(" light=").append(level.getMaxLocalRawBrightness(pos));
     }
 
-    // --- AVAILABLE ACTIONS ---------------------------------------------------------
+    // --- CAPABILITIES (executor skills once a task is claimed) ----------------------
 
     /**
-     * The enumerated action space from the design brief, pre-filtered by nearby stations and
-     * written in the compact short names ({@code craft} requires a crafting table in range,
-     * {@code deposit}/{@code withdraw} require a chest or barrel in range).
+     * What the executor can do automatically once the agent claims a task, pre-filtered by
+     * nearby stations and written in the compact short names ({@code craft} requires a
+     * crafting table in range, {@code deposit}/{@code withdraw} require a chest or barrel
+     * in range). These are capabilities, not menu items: the LLM decision is claim/rest/say.
      */
     private static void appendActions(StringBuilder sb, BlockScan scan) {
         List<String> actions = new ArrayList<>(List.of(
@@ -385,7 +386,7 @@ public final class AgentObservation {
             actions.add("withdraw(chest)");
         }
         actions.addAll(List.of("light()", "use(item)", "say(player,msg)", "rest()", "claim()"));
-        sb.append("[AVAILABLE ACTIONS] ").append(String.join(", ", actions));
+        sb.append("[CAPABILITIES once working a task] ").append(String.join(", ", actions));
     }
 
     // --- formatting helpers ---------------------------------------------------------

@@ -27,6 +27,7 @@ import com.siaws.siawsmod.content.agents.tasks.ComfortDetectors;
 import com.siaws.siawsmod.content.agents.tasks.TaskBoard;
 import com.siaws.siawsmod.content.llm.LlmActions;
 import com.siaws.siawsmod.content.llm.LlmClient;
+import com.siaws.siawsmod.content.llm.LlmPrompts;
 import com.siaws.siawsmod.config.Config;
 import com.siaws.siawsmod.init.SiasWorkshopEntities;
 
@@ -265,24 +266,24 @@ public final class AgentsLlmGameTest {
         server.start();
         String endpoint = "http://127.0.0.1:" + server.getAddress().getPort() + "/v1";
         try {
-            LlmClient.LlmResult ok = await(helper, LlmClient.requestRaw(endpoint, "test-model", 5, 64, 0.3f, "sys", "user"));
+            LlmClient.LlmResult ok = await(helper, LlmClient.requestRaw(endpoint, "test-model", 5, 64, 0.3f, "", "sys", "user"));
             helper.assertTrue(ok.usable(), "valid reply should be usable: " + ok.failure());
             helper.assertTrue(LlmActions.validate(ok.json()) != null, "reply should validate as an action: " + ok.json());
             helper.assertTrue(!lastRequestBody.get().contains("response_format"),
                     "request must not send response_format (LM Studio rejects json_object): " + lastRequestBody.get());
 
             mode.set("error");
-            LlmClient.LlmResult httpError = await(helper, LlmClient.requestRaw(endpoint, "test-model", 5, 64, 0.3f, "sys", "user"));
+            LlmClient.LlmResult httpError = await(helper, LlmClient.requestRaw(endpoint, "test-model", 5, 64, 0.3f, "", "sys", "user"));
             helper.assertTrue(!httpError.usable() && httpError.failure() != null,
                     "500 must collapse to a failure outcome");
 
             mode.set("garbage");
-            LlmClient.LlmResult garbage = await(helper, LlmClient.requestRaw(endpoint, "test-model", 5, 64, 0.3f, "sys", "user"));
+            LlmClient.LlmResult garbage = await(helper, LlmClient.requestRaw(endpoint, "test-model", 5, 64, 0.3f, "", "sys", "user"));
             helper.assertTrue(!garbage.usable(), "malformed body must collapse to a failure outcome");
 
             mode.set("slow");
             long start = System.nanoTime();
-            LlmClient.LlmResult timeout = await(helper, LlmClient.requestRaw(endpoint, "test-model", 1, 64, 0.3f, "sys", "user"));
+            LlmClient.LlmResult timeout = await(helper, LlmClient.requestRaw(endpoint, "test-model", 1, 64, 0.3f, "", "sys", "user"));
             long elapsedMs = (System.nanoTime() - start) / 1_000_000;
             helper.assertTrue(!timeout.usable(), "slow server must time out into a failure outcome");
             helper.assertTrue(elapsedMs < 4_000, "timeout case took too long: " + elapsedMs + "ms");
@@ -302,6 +303,17 @@ public final class AgentsLlmGameTest {
         helper.assertTrue(LlmActions.parseJsonObject("not json at all") == null, "garbage must not parse");
         helper.assertTrue(LlmActions.parseJsonObject("") == null, "empty content must not parse");
         helper.assertTrue(LlmActions.parseJsonObject("[]") == null, "non-object JSON must not parse");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void llmPromptListsOpenTaskKeys(GameTestHelper helper) {
+        BoardTask task = new BoardTask(UUID.randomUUID().toString(), "comfort:light:" + UUID.randomUUID(),
+                BoardTask.Type.COMFORT_LIGHT, BoardTask.Status.OPEN, null, 0, 0, 0, "3 dark spots near Dev", null);
+        String prompt = LlmPrompts.userPrompt("[SELF] test", List.of(task), List.of(), List.of());
+        helper.assertTrue(prompt.contains("comfort:light:"), "prompt must list the open-task key: " + prompt);
+        helper.assertTrue(prompt.contains("claim"), "prompt must explain how to claim: " + prompt);
+        helper.assertTrue(!prompt.contains("ACTIONS: move"), "prompt must not dump the raw action space: " + prompt);
         helper.succeed();
     }
 

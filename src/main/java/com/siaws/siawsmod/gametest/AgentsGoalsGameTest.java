@@ -447,8 +447,8 @@ public final class AgentsGoalsGameTest {
             String snapshot = AgentObservation.build(agent, 900);
             int tokens = ObservationBudget.estimateTokens(snapshot);
             helper.assertTrue(tokens <= 900, "snapshot over budget: " + tokens + " tokens:\n" + snapshot);
-            helper.assertTrue(snapshot.contains("[SELF]") && snapshot.contains("[AVAILABLE ACTIONS]"),
-                    "SELF and AVAILABLE ACTIONS must always survive:\n" + snapshot);
+            helper.assertTrue(snapshot.contains("[SELF]") && snapshot.contains("[CAPABILITIES once working a task]"),
+                    "SELF and CAPABILITIES once working a task must always survive:\n" + snapshot);
         } finally {
             level.getServer().getPlayerList().remove(player);
         }
@@ -468,8 +468,8 @@ public final class AgentsGoalsGameTest {
             // every compression level is guaranteed to apply; 120 was within ~2 tokens of the
             // PLAYERS-compression boundary for this scene and could flake either way.
             String snapshot = AgentObservation.build(agent, 100);
-            helper.assertTrue(snapshot.contains("[SELF]") && snapshot.contains("[AVAILABLE ACTIONS]"),
-                    "SELF and AVAILABLE ACTIONS must always survive:\n" + snapshot);
+            helper.assertTrue(snapshot.contains("[SELF]") && snapshot.contains("[CAPABILITIES once working a task]"),
+                    "SELF and CAPABILITIES once working a task must always survive:\n" + snapshot);
 
             // Compression runs bottom-up in salience order; if PLAYERS is compressed, every
             // earlier section is too. ENVIRONMENT shrinks to the one-liner (no biome/weather),

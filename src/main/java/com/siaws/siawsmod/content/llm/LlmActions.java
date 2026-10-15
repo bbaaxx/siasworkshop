@@ -15,7 +15,7 @@ import com.google.gson.JsonObject;
  * small JSON object {@code {"action":"...","args":{...}}}. {@link #validate(JsonObject)} is
  * the safety boundary — raw model output never touches the world without passing through
  * here first; anything unlisted or malformed is rejected and the caller falls back to
- * templates. Action names match the observation's AVAILABLE ACTIONS section.
+ * templates. Action names match the observation's CAPABILITIES section.
  */
 public final class LlmActions {
     /** One validated action: a canonical name plus its (shape-checked) arguments. */

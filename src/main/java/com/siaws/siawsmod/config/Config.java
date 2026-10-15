@@ -58,7 +58,7 @@ public class Config {
 
     public static final ModConfigSpec.IntValue AGENTS_OBSERVATION_BUDGET_TOKENS = BUILDER
             .comment("Token budget for the agent observation snapshot (~4 chars per token); sections shrink",
-                    "bottom-up in salience order until the estimate fits. SELF and AVAILABLE ACTIONS always survive.")
+                    "bottom-up in salience order until the estimate fits. SELF and CAPABILITIES always survive.")
             .defineInRange("agents.observationBudgetTokens", 900, 100, 10000);
 
     public static final ModConfigSpec.BooleanValue LLM_ENABLED = BUILDER
@@ -77,6 +77,11 @@ public class Config {
     public static final ModConfigSpec.ConfigValue<String> LLM_MODEL = BUILDER
             .comment("Model id passed to the endpoint; must match a model the endpoint serves.")
             .define("llm.model", "prism-ml/bonsai-27b");
+
+    public static final ModConfigSpec.ConfigValue<String> LLM_API_KEY = BUILDER
+            .comment("API key sent as a Bearer token (cloud OpenAI-compatible providers). Empty =",
+                    "no Authorization header, for local endpoints like LM Studio/Ollama.")
+            .define("llm.apiKey", "");
 
     public static final ModConfigSpec.IntValue LLM_TIMEOUT_SECONDS = BUILDER
             .comment("HTTP timeout for one LLM request; reasoning models on a loaded machine can",
