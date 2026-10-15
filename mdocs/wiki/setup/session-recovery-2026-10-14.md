@@ -145,11 +145,15 @@ tools (per user instruction) and write state to disk first.
 
 ## How to resume
 
-1. Read `AGENTS.md`, this file, `setup/agent-shared-ledger` (latest SEQ entries),
-   and `reference/agent-embodiment-observation` (design source of truth).
-2. `mdocs status` / read `mdocs/.workflow-state.json` — should be idle/COMPLETE.
-3. Confirm with user: commit the spike diff? close `publish-curseforge-1-0-2`?
-4. Activate `agents-v1-decision-pool-goals--2026-10-14`
-   (`mdocs resume` → steps UNDERSTAND…EXECUTE), including the SEQ-007 scope
-   additions (compression + verbatim debug file). Optionally verify the LM Studio
-   endpoint with curl first (above).
+1. Read `AGENTS.md`, this file, `setup/agent-shared-ledger` (latest SEQ entries —
+   SEQ-011 holds the full live-LLM-test story), and
+   `reference/agent-embodiment-observation` (design source of truth).
+2. `mdocs status` — idle/COMPLETE.
+3. LLM live smoke test PASSED 2026-10-15 (SEQ-011). Fixes in f974a47, c9ebf8d,
+   212f147; 27/27 gametests green; wire-compat notes in
+   reference/local-llm-feasibility.
+4. Next candidates (user picks): foundation-block GUI for pool/board + blueprint
+   queueing; chronicle/gossip flavor layer (local-llm-feasibility Phase 1);
+   shelter-task execution; observation zero-POI nit; applyDecisionAction mapping
+   for valid-but-idle actions like light(); production model choice (fast
+   non-reasoning local model) + decision-latency tuning.
