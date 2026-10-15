@@ -212,10 +212,13 @@ public final class AgentDecisionLoop {
         long now = level.getGameTime();
         LlmAction action = result.usable() ? LlmActions.validate(result.json()) : null;
         if (action == null) {
-            LlmClient.logFailure(result);
+            SiasWorkshop.LOGGER.warn("[AgentDecisionLoop] agent {} LLM reply unusable ({}), falling back to templates",
+                    agent.getUUID(), result.failure());
             claimByPriority(board, agent, open, now, leaseTicks);
             return;
         }
+        SiasWorkshop.LOGGER.info("[AgentDecisionLoop] agent {} decided via LLM: {} {}",
+                agent.getUUID(), action.action(), action.args());
         applyDecisionAction(board, agent, action, open, now, leaseTicks);
     }
 
@@ -277,6 +280,8 @@ public final class AgentDecisionLoop {
 
     private static void claim(TaskBoard board, WorkshopAgentEntity agent, BoardTask task, long now, int leaseTicks) {
         if (board.claim(task.id(), agent.getUUID(), leaseTicks, now)) {
+            SiasWorkshop.LOGGER.info("[AgentDecisionLoop] agent {} claimed {} ({})",
+                    agent.getUUID(), task.key(), task.type());
             agent.setCurrentTaskLabel(task.key());
             clearStuck(agent);
         }

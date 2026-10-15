@@ -8,8 +8,10 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 
+import com.siaws.siawsmod.content.agents.AgentWorldData;
 import com.siaws.siawsmod.content.agents.WorkshopAgentEntity;
 import com.siaws.siawsmod.content.agents.tasks.BoardTask;
+import com.siaws.siawsmod.content.agents.tasks.TaskBoard;
 
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -28,8 +30,9 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
  * {@code /siasworkshop} agent commands (permission level 2, vanilla gamemode-command level):
  * {@code build <blueprint> [<x> <y> <z>]} enqueues a build task (anchor defaults to the executing
  * player's position; a village-foundation GUI is deliberately deferred), {@code list} prints the
- * loaded blueprints, {@code give <item> [<count>]} stocks the nearest workshop agent within 8
- * blocks — its only other inventory source is withdrawing build materials from nearby chests.
+ * loaded blueprints, {@code board} dumps the shared task board, {@code give <item> [<count>]}
+ * stocks the nearest workshop agent within 8 blocks — its only other inventory source is
+ * withdrawing build materials from nearby chests.
  */
 public final class BuildCommand {
     private static final double GIVE_RADIUS = 8.0;
@@ -46,6 +49,7 @@ public final class BuildCommand {
                                         .then(Commands.argument("pos", BlockPosArgument.blockPos())
                                                 .executes(BuildCommand::enqueueAtPos))))
                         .then(Commands.literal("list").executes(BuildCommand::listBlueprints))
+                        .then(Commands.literal("board").executes(BuildCommand::listBoard))
                         .then(Commands.literal("give")
                                 .then(Commands.argument("item", ItemArgument.item(event.getBuildContext()))
                                         .executes(BuildCommand::giveOneStack)
@@ -88,6 +92,25 @@ public final class BuildCommand {
             source.sendSystemMessage(Component.literal("Blueprints (" + names.size() + "): " + String.join(", ", names)));
         }
         return names.size();
+    }
+
+    private static int listBoard(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        List<BoardTask> tasks = AgentWorldData.board(source.getLevel()).tasks();
+        if (tasks.isEmpty()) {
+            source.sendSystemMessage(Component.literal("Task board is empty."));
+            return 0;
+        }
+        source.sendSystemMessage(Component.literal("Task board (" + tasks.size() + "):"));
+        for (BoardTask task : tasks) {
+            String claimant = task.claimantUuid() == null ? "-"
+                    : task.claimantUuid().toString().substring(0, 8);
+            String line = "  " + task.status() + " " + task.type() + " " + task.key()
+                    + " [" + claimant + "]"
+                    + (task.failureReason() == null ? "" : " (" + task.failureReason() + ")");
+            source.sendSystemMessage(Component.literal(line));
+        }
+        return tasks.size();
     }
 
     private static int giveOneStack(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {

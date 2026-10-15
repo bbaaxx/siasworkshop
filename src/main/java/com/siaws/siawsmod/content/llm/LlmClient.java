@@ -15,7 +15,6 @@ import javax.annotation.Nullable;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import com.siaws.siawsmod.SiasWorkshop;
 import com.siaws.siawsmod.config.Config;
 
 import net.minecraft.server.MinecraftServer;
@@ -82,9 +81,9 @@ public final class LlmClient {
         body.addProperty("model", model);
         body.addProperty("temperature", temperature);
         body.addProperty("max_tokens", maxTokens);
-        JsonObject responseFormat = new JsonObject();
-        responseFormat.addProperty("type", "json_object");
-        body.add("response_format", responseFormat);
+        // No response_format: LM Studio (llama.cpp) rejects "json_object" (it allows only
+        // json_schema/text) and Ollama ignores it. The system prompt constrains the shape,
+        // and LlmActions.parseJsonObject extracts the JSON defensively (code fences, prose).
         JsonArray messages = new JsonArray();
         messages.add(message("system", system));
         messages.add(message("user", user));
@@ -142,10 +141,4 @@ public final class LlmClient {
         return cause;
     }
 
-    /** Debug-only visibility into failures; the design says never log-spam above DEBUG. */
-    public static void logFailure(LlmResult result) {
-        if (!result.usable()) {
-            SiasWorkshop.LOGGER.debug("[LlmClient] request failed, falling back to templates: {}", result.failure());
-        }
-    }
 }

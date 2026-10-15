@@ -80,8 +80,10 @@ public class Config {
             .defineInRange("llm.timeoutSeconds", 30, 1, 120);
 
     public static final ModConfigSpec.IntValue LLM_MAX_TOKENS = BUILDER
-            .comment("max_tokens for the decision request: the answer is one small JSON object.")
-            .defineInRange("llm.maxTokens", 64, 16, 512);
+            .comment("max_tokens for the decision request. Reasoning models can spend most of",
+                    "the budget on hidden reasoning before emitting the final JSON, so keep",
+                    "this generous; the answer itself is one small JSON object.")
+            .defineInRange("llm.maxTokens", 512, 16, 512);
 
     public static final ModConfigSpec.DoubleValue LLM_TEMPERATURE = BUILDER
             .comment("Sampling temperature for the decision request.")

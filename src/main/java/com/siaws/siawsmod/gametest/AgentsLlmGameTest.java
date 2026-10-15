@@ -47,7 +47,8 @@ import net.neoforged.neoforge.gametest.GameTestHolder;
 
 /**
  * Game tests for the LLM client + build-knowledge slice: own-format parsers, build-card
- * parsing, the LLM client against a loopback stub, and end-to-end loop runs (light fix and
+ * parsing, the LLM client against a loopback stub, LLM content parsing, and end-to-end loop
+ * runs (light fix and
  * blueprint build) on the level's real board. Hermetic tests (parsers, cards, stub, board
  * API) share the default batch; the end-to-end loop tests pin day time and run in dedicated
  * batches, same pattern as the detector tests.
@@ -231,7 +232,10 @@ public final class AgentsLlmGameTest {
         com.sun.net.httpserver.HttpServer server = com.sun.net.httpserver.HttpServer.create(
                 new InetSocketAddress("127.0.0.1", 0), 0);
         AtomicReference<String> mode = new AtomicReference<>("ok");
+        AtomicReference<String> lastRequestBody = new AtomicReference<>("");
         server.createContext("/v1/chat/completions", exchange -> {
+            lastRequestBody.set(new String(exchange.getRequestBody().readAllBytes(),
+                    java.nio.charset.StandardCharsets.UTF_8));
             String body;
             switch (mode.get()) {
                 case "error" -> {
@@ -264,6 +268,8 @@ public final class AgentsLlmGameTest {
             LlmClient.LlmResult ok = await(helper, LlmClient.requestRaw(endpoint, "test-model", 5, 64, 0.3f, "sys", "user"));
             helper.assertTrue(ok.usable(), "valid reply should be usable: " + ok.failure());
             helper.assertTrue(LlmActions.validate(ok.json()) != null, "reply should validate as an action: " + ok.json());
+            helper.assertTrue(!lastRequestBody.get().contains("response_format"),
+                    "request must not send response_format (LM Studio rejects json_object): " + lastRequestBody.get());
 
             mode.set("error");
             LlmClient.LlmResult httpError = await(helper, LlmClient.requestRaw(endpoint, "test-model", 5, 64, 0.3f, "sys", "user"));
@@ -283,6 +289,19 @@ public final class AgentsLlmGameTest {
         } finally {
             server.stop(0);
         }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void llmContentParsing(GameTestHelper helper) {
+        var fenced = LlmActions.parseJsonObject("```json\n{\"action\":\"rest\",\"args\":{}}\n```");
+        helper.assertTrue(fenced != null && "rest".equals(fenced.get("action").getAsString()),
+                "code-fenced JSON must parse: " + fenced);
+        helper.assertTrue(LlmActions.parseJsonObject("Sure! {\"action\":\"rest\",\"args\":{}} — done.") != null,
+                "JSON embedded in prose must parse");
+        helper.assertTrue(LlmActions.parseJsonObject("not json at all") == null, "garbage must not parse");
+        helper.assertTrue(LlmActions.parseJsonObject("") == null, "empty content must not parse");
+        helper.assertTrue(LlmActions.parseJsonObject("[]") == null, "non-object JSON must not parse");
         helper.succeed();
     }
 

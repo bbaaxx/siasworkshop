@@ -156,11 +156,24 @@ public final class LlmActions {
             return null;
         }
         String trimmed = content.strip();
-        if (trimmed.isEmpty() || trimmed.charAt(0) != '{') {
+        if (trimmed.isEmpty()) {
             return null;
         }
+        JsonObject direct = tryParse(trimmed);
+        if (direct != null) {
+            return direct;
+        }
+        // Reasoning models often wrap the JSON in a markdown code fence or lead with prose
+        // despite the "JSON only" system prompt: retry on the first {...} span.
+        int start = trimmed.indexOf('{');
+        int end = trimmed.lastIndexOf('}');
+        return start >= 0 && end > start ? tryParse(trimmed.substring(start, end + 1)) : null;
+    }
+
+    @Nullable
+    private static JsonObject tryParse(String text) {
         try {
-            JsonElement element = com.google.gson.JsonParser.parseString(trimmed);
+            JsonElement element = com.google.gson.JsonParser.parseString(text);
             return element.isJsonObject() ? element.getAsJsonObject() : null;
         } catch (RuntimeException e) {
             return null;

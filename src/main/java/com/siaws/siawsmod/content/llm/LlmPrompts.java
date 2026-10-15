@@ -17,8 +17,8 @@ public final class LlmPrompts {
 
     /** Fixed system line; pairs with {@link LlmActions} as the output contract. */
     public static String systemLine() {
-        return "You pick ONE action for a Minecraft villager-agent. Answer JSON only: "
-                + "{\"action\":\"...\",\"args\":{...}}";
+        return "You pick ONE action for a Minecraft villager-agent. Answer with one JSON object only: "
+                + "{\"action\":\"...\",\"args\":{...}}. No code fences, no prose.";
     }
 
     /**
