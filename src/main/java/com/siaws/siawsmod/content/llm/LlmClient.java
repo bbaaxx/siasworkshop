@@ -92,7 +92,10 @@ public final class LlmClient {
 
         final HttpRequest request;
         try {
-            HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(endpoint + "/chat/completions"))
+            // tolerate a trailing slash in the configured endpoint: OpenRouter 404s on the
+            // resulting double slash (verified: /api/v1//models -> 404, /api/v1/models -> 200)
+            String base = endpoint.endsWith("/") ? endpoint.substring(0, endpoint.length() - 1) : endpoint;
+            HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(base + "/chat/completions"))
                     .timeout(Duration.ofSeconds(timeoutSeconds))
                     .header("Content-Type", "application/json");
             if (apiKey != null && !apiKey.isBlank()) {
