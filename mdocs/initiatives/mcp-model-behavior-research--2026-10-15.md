@@ -3,21 +3,21 @@ id: "mcp-model-behavior-research--2026-10-15"
 title: "Research: dedicated MCP layer for model-stable agent decisions"
 status: "proposed"
 created: "2026-10-15"
-updated: "2026-10-15"
+updated: "2026-10-16"
 owner: ""
 tags: ["research","llm","mcp","agents","architecture"]
-related_wiki: ["reference/local-llm-feasibility", "setup/agent-shared-ledger"]
+related_wiki: ["reference/local-llm-feasibility", "setup/agent-shared-ledger", "setup/agent-ux-feedback-2026-10-16"]
 priority: "medium"
 ---
 
 ## Objective
 
-Build a dedicated **MCP (Model Context Protocol) sidecar** between the mod and LLM
-providers so that swapping models (local sizes/families, cloud) changes
+Build a dedicated **MCP (Model Context Protocol) sidecar** between the mod and
+LLM providers so that swapping models (local sizes/families, cloud) changes
 latency/cost/quality but never the interface between model and mod — a stable,
-growable protocol for agent decisions.
+growable protocol for agent behavior.
 
-## Direction (user decision, 2026-10-15)
+## Direction (user decisions, 2026-10-15 + 2026-10-16)
 
 - **Normalization lives in the MCP sidecar**, not in an OpenAI-shim/proxy. The mod
   keeps a single dumb MCP client; per-model quirks (prompt templates, token budgets,
@@ -26,16 +26,20 @@ growable protocol for agent decisions.
 - **Per-model optimization profiles are allowed for the most-used models** on top of
   the generic path — the sidecar hosts profiles (prompt variants, budgets,
   capability flags) keyed by model id/family.
-- **The mod exposes its action catalog to the sidecar as MCP tools.** The mod owns a
-  registry of programmed actions and patterns (starting with the decision trio
-  `claim(task_key)` / `rest()` / `say(player,msg)`, growing as the mod's configured
-  actions and components grow — e.g. build patterns, deposit/withdraw, chronicle
-  writes). Each capability added to the mod becomes a tool in the MCP layer. The
-  tool catalog **is** the stable interface: models can be switched and optimized,
-  but the protocol by which they interact with the mod never moves.
-- **Decoupling is a feature, not just hygiene**: new mod capabilities ship by
-  registering a tool, without touching model integration code; new models onboard by
-  adding a sidecar profile, without touching the mod.
+- **The mod exposes its capability catalog to the sidecar as MCP tools.** The mod owns
+  the registry; the tool catalog **is** the stable interface: models can be switched
+  and optimized, but the protocol by which they interact with the mod never moves.
+  New mod capabilities ship by registering a tool, without touching model
+  integration; new models onboard by adding a sidecar profile, without touching mod.
+- **Tools are composable pattern trees, not mapped verbs** (user feedback
+  2026-10-16, `setup/agent-ux-feedback-2026-10-16`): the catalog is leveled and
+  tree-structured — category `building` holds patterns like "think through a build
+  request" → "analyze terrain / find where" → "design a build" → "select materials"
+  → "create blueprint" → "apply blueprint". The world is a **state machine**:
+  observe state via MCP, request state changes via patterns, observe convergence.
+  LLM intelligence plans at a high level; the mod executes the leaf effects (place,
+  build, farm, mine). MCP sessions are **multi-step workflows**, not one-shot
+  decision calls.
 
 ## Motivation (pain observed in the live test, SEQ-011)
 
@@ -60,10 +64,11 @@ ad hoc inside `LlmClient`:
    sidecar for those?
 2. Does tool-calling measurably reduce malformed/unusable decisions vs the current
    prompt-constrained JSON path? (Metric target: `bad_json`/fallback rate.)
-3. **Tool-catalog evolution**: how do we version/schema the tool registry as the
-   mod grows — mod ships tool descriptors, sidecar reflects them, models see them;
-   how to keep prompts small when the catalog is large (retrieve-and-inject per
-   situation, like build cards today)?
+3. **Pattern-tree design**: descriptor format for categories → patterns →
+   sub-tools/effects; how sub-tool discovery works across turns; how prompts stay
+   small when the catalog grows (retrieve-and-inject per situation, like build
+   cards today); how the multi-step session state is held (in the sidecar? in the
+   mod against the task board?).
 4. What does "stable behavior" mean measurably — a scenario corpus (recorded
    observations + expected action classes) replayable offline against any endpoint;
    can the sidecar host this model-behavior CI (A/B profiles, regression runs)?
@@ -78,18 +83,21 @@ ad hoc inside `LlmClient`:
   model-specific.
 - **Per-model profiles inside the mod**: demoted — profiles move into the sidecar;
   the mod stays model-agnostic.
+- **Low-level mapped tools** ("open chest", "place block T at X,Y"): rejected by
+  user (2026-10-16) — the catalog exposes composable patterns; leaf effects are
+  executed by the mod, not driven step-by-step by the model.
 - **Status quo (in-mod normalization)**: the v1 fallback path stays for offline, but
   is not the integration strategy.
 
-## Plan (not started — parked)
+## Plan (parked until the state-visibility feature lands — see ledger)
 
-- [x] Finish the cloud-model test round (current track; its failure modes become
-      requirements input here) — DONE 2026-10-16 (SEQ-014: trailing-slash 404,
-      seconds-fast decisions, shelter ping-pong)
+- [x] Finish the cloud-model test round (SEQ-014: trailing-slash 404, seconds-fast
+      decisions, shelter ping-pong) — requirements input collected
+- [ ] Collect + prioritize the user's playtest feedback batch (2026-10-16)
+- [ ] Design the pattern-tree descriptor format (category → patterns → effects),
+      building-workflow example as the reference walk
 - [ ] Spike: minimal sidecar exposing the 3 decision tools to one local model and
       one cloud model; measure decision latency + malformed-decision rate vs v1
-- [ ] Design the mod-side tool registry (descriptor format, registration, growth
-      path) — starts as a reflection of `LlmActions`, decouples from it
 - [ ] Scenario corpus + assertions for question 4
 - [ ] Recommendation → `reference/` wiki; if adopted, plan the LlmClient→MCP-client
       migration (config: sidecar address instead of endpoint/model/apiKey)
@@ -102,6 +110,9 @@ ad hoc inside `LlmClient`:
       mod exposes its action/pattern catalog as MCP tools — the tool catalog is the
       stable model↔mod interface, growing with mod capabilities; per-model
       optimization profiles allowed for hot models. Priority low→medium.
-- [2026-10-16] Cloud test round done (SEQ-014) — requirements input collected:
-      per-model reasoning budgets, wire quirks (double-slash 404), task-claim
-      semantics. Awaiting user's gameplay feedback batch before prioritizing.
+- [2026-10-16] Cloud test round done (SEQ-014) — requirements input collected.
+- [2026-10-16] User feedback batch (wiki: setup/agent-ux-feedback-2026-10-16):
+      pattern-tree tool catalog (world = observable state machine, LLM plans, mod
+      executes leaf effects); in-game agent state visibility is the agreed
+      pre-sidecar feature. Research questions refocused; low-level mapped tools
+      recorded as rejected.
