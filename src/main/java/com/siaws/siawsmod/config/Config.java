@@ -20,6 +20,10 @@ public class Config {
                     "observation snapshot to the acting player's chat and the server log. Debug tooling only.")
             .define("agents.debugInspector", true);
 
+    public static final ModConfigSpec.BooleanValue AGENTS_DEBUG_ACTIVITY_LOG = BUILDER
+            .comment("Append a JSONL trace of agent decisions, claims, and state transitions to",
+                    "debug/siasworkshop/agent-activity.log under the game directory. Debug tooling only.")
+            .define("agents.debugActivityLog", false);
     public static final ModConfigSpec.BooleanValue AGENTS_COMFORT_DETECTORS_ENABLED = BUILDER
             .comment("Run the comfort deficit detectors (light, shelter) on the server tick: they raise",
                     "shared task-board entries when a player sits in the dark or spends the night exposed.",

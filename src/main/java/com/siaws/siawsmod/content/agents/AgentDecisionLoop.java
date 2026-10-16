@@ -135,6 +135,9 @@ public final class AgentDecisionLoop {
         for (WorkshopAgentEntity agent : level.getEntitiesOfClass(WorkshopAgentEntity.class, WHOLE_WORLD)) {
             resolveCitations(agent, board, pool, now);
             List<BoardTask> claimed = board.claimedBy(agent.getUUID());
+            if (claimed.isEmpty() && !inFlightRequests.contains(agent.getUUID())) {
+                AgentActivity.idle(agent); // 1-tick label gap after a release is fine
+            }
             if (!claimed.isEmpty()) {
                 BoardTask task = claimed.get(0);
                 if (execute(level, board, pool, agent, task, now, poolMaxEntries)) {
@@ -180,12 +183,14 @@ public final class AgentDecisionLoop {
         rememberCitations(agent, retrieved);
 
         if (!Config.LLM_ENABLED.get()) {
-            claimByPriority(board, agent, open, now, leaseTicks);
+            claimByPriority(level, board, agent, open, now, leaseTicks);
             return;
         }
         if (!inFlightRequests.add(agent.getUUID())) {
             return; // one request in flight per agent
         }
+        AgentActivity.deciding(agent);
+        AgentActivity.dispatched(level, agent, open.size());
         String observation = AgentObservation.build(agent, Config.AGENTS_OBSERVATION_BUDGET_TOKENS.get());
         List<BuildCard> cards = cardsFor(open);
         String user = LlmPrompts.userPrompt(observation, open,
@@ -218,12 +223,14 @@ public final class AgentDecisionLoop {
         if (action == null) {
             SiasWorkshop.LOGGER.warn("[AgentDecisionLoop] agent {} LLM reply unusable ({}), falling back to templates",
                     agent.getUUID(), result.failure());
-            claimByPriority(board, agent, open, now, leaseTicks);
+            AgentActivity.fallback(level, agent, String.valueOf(result.failure()));
+            claimByPriority(level, board, agent, open, now, leaseTicks);
             return;
         }
         SiasWorkshop.LOGGER.info("[AgentDecisionLoop] agent {} decided via LLM: {} {}",
                 agent.getUUID(), action.action(), action.args());
-        applyDecisionAction(board, agent, action, open, now, leaseTicks);
+        AgentActivity.decision(level, agent, action.action(), action.args().toString());
+        applyDecisionAction(level, board, agent, action, open, now, leaseTicks);
     }
 
     /** Clears the loop's static bookkeeping on server stop (covers world restart in one JVM). */
@@ -245,7 +252,7 @@ public final class AgentDecisionLoop {
         return BuildCards.INSTANCE.retrieve(tokens, 3);
     }
 
-    private static void applyDecisionAction(TaskBoard board, WorkshopAgentEntity agent,
+    private static void applyDecisionAction(ServerLevel level, TaskBoard board, WorkshopAgentEntity agent,
             LlmAction action, List<BoardTask> open, long now, int leaseTicks) {
         switch (action.action()) {
             case "claim" -> {
@@ -258,19 +265,28 @@ public final class AgentDecisionLoop {
                     target = highestPriority(open);
                 }
                 if (target != null) {
-                    claim(board, agent, target, now, leaseTicks);
+                    claim(level, board, agent, target, now, leaseTicks);
                 }
             }
-            case "rest", "say" -> agent.setCurrentTaskLabel(action.action()); // deliberate idle
-            default -> claimByPriority(board, agent, open, now, leaseTicks); // valid but not decision-shaped
+            case "rest" -> {
+                agent.setCurrentTaskLabel("rest");
+                AgentActivity.resting(agent); // deliberate idle
+            }
+            case "say" -> {
+                String player = action.args().has("player") ? action.args().get("player").getAsString() : "";
+                String msg = action.args().has("msg") ? action.args().get("msg").getAsString() : "";
+                AgentActivity.say(level, agent, player, msg);
+                agent.setCurrentTaskLabel("");
+            }
+            default -> claimByPriority(level, board, agent, open, now, leaseTicks); // valid but not decision-shaped
         }
     }
 
-    private static void claimByPriority(TaskBoard board, WorkshopAgentEntity agent, List<BoardTask> open,
-            long now, int leaseTicks) {
+    private static void claimByPriority(ServerLevel level, TaskBoard board, WorkshopAgentEntity agent,
+            List<BoardTask> open, long now, int leaseTicks) {
         BoardTask target = highestPriority(open);
         if (target != null) {
-            claim(board, agent, target, now, leaseTicks);
+            claim(level, board, agent, target, now, leaseTicks);
         }
     }
 
@@ -282,11 +298,13 @@ public final class AgentDecisionLoop {
                 .orElse(null);
     }
 
-    private static void claim(TaskBoard board, WorkshopAgentEntity agent, BoardTask task, long now, int leaseTicks) {
+    private static void claim(ServerLevel level, TaskBoard board, WorkshopAgentEntity agent,
+            BoardTask task, long now, int leaseTicks) {
         if (board.claim(task.id(), agent.getUUID(), leaseTicks, now)) {
             SiasWorkshop.LOGGER.info("[AgentDecisionLoop] agent {} claimed {} ({})",
                     agent.getUUID(), task.key(), task.type());
             agent.setCurrentTaskLabel(task.key());
+            AgentActivity.claimed(level, agent, task);
             clearStuck(agent);
         }
     }
@@ -355,6 +373,7 @@ public final class AgentDecisionLoop {
             return true; // deficit resolving; the detector will auto-complete the task
         }
         if (!isCloseEnough(agent, dark)) {
+            AgentActivity.working(agent, task, "heading there");
             navigate(agent, dark);
             if (isStuck(agent)) {
                 board.release(task.id(), agent.getUUID(), level.getGameTime());
@@ -379,6 +398,7 @@ public final class AgentDecisionLoop {
             agent.setCurrentTaskLabel("");
             return false;
         }
+        AgentActivity.working(agent, task, "placing");
         if (level.setBlock(target, Blocks.TORCH.defaultBlockState(), 3)) {
             consumeItem(agent, Items.TORCH);
         }
@@ -400,6 +420,7 @@ public final class AgentDecisionLoop {
             return false;
         }
         if (!isCloseEnough(agent, job.anchor())) {
+            AgentActivity.working(agent, task, "heading there");
             navigate(agent, job.anchor());
             if (isStuck(agent)) {
                 board.release(task.id(), agent.getUUID(), now);
@@ -424,6 +445,7 @@ public final class AgentDecisionLoop {
             Blueprint.Placement upcoming = placements.get(i);
             Block upcomingBlock = BuiltInRegistries.BLOCK.get(ResourceLocation.tryParse(upcoming.blockId()));
             if (upcomingBlock != null && !hasItem(agent, upcomingBlock.asItem())) {
+                AgentActivity.working(agent, task, "fetching materials");
                 withdrawOnce(level, agent, job.anchor(), neededMaterials(placements, placed));
                 break;
             }
@@ -444,6 +466,7 @@ public final class AgentDecisionLoop {
                 agent.setCurrentTaskLabel("");
                 return false;
             }
+            AgentActivity.working(agent, task, "placing");
             if (level.setBlock(target, block.defaultBlockState(), 3)) {
                 consumeItem(agent, block.asItem());
                 toPlace--;

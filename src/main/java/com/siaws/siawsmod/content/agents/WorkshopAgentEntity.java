@@ -6,6 +6,7 @@ import java.util.UUID;
 import javax.annotation.Nullable;
 
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
@@ -39,6 +40,11 @@ public class WorkshopAgentEntity extends PathfinderMob {
             SynchedEntityData.defineId(WorkshopAgentEntity.class, EntityDataSerializers.OPTIONAL_UUID);
     private static final EntityDataAccessor<String> DATA_TASK_LABEL =
             SynchedEntityData.defineId(WorkshopAgentEntity.class, EntityDataSerializers.STRING);
+
+    /** Last activity label set via {@link #setActivityLabel}; cache only, never persisted.
+     *  Null until the first set so the initial application always happens ("" would no-op). */
+    @Nullable
+    private String activityLabel = null;
 
     /** Agent storage; the observation snapshot renders an inventory summary from this. */
     private final SimpleContainer inventory = new SimpleContainer(INVENTORY_SIZE);
@@ -81,6 +87,25 @@ public class WorkshopAgentEntity extends PathfinderMob {
     /** Sets the claimed-task label ("" = idle). Called by the decision loop. */
     public void setCurrentTaskLabel(String label) {
         this.entityData.set(DATA_TASK_LABEL, label == null ? "" : label);
+    }
+
+    /**
+     * Human-readable activity state for the nameplate (see {@link AgentActivity}): the
+     * loop sets it at state transitions. Cached so repeat sets with the same value are
+     * no-ops — the executor ticks far more often than the state moves. Session-scoped:
+     * the custom name is cleared on world load, never persisted.
+     */
+    public void setActivityLabel(@Nullable String label) {
+        String next = label == null ? "" : label;
+        if (java.util.Objects.equals(next, this.activityLabel)) {
+            return;
+        }
+        this.activityLabel = next;        Component name = getType().getDescription();
+        if (!next.isEmpty()) {
+            name = name.copy().append(Component.literal(" · " + next));
+        }
+        setCustomName(name);
+        setCustomNameVisible(true);
     }
 
     /**
@@ -144,5 +169,9 @@ public class WorkshopAgentEntity extends PathfinderMob {
         if (tag.contains("Inventory")) {
             ContainerHelper.loadAllItems(tag.getCompound("Inventory"), this.inventory.getItems(), this.registryAccess());
         }
+        // the nameplate carries session-scoped activity state (AgentActivity); never persist it
+        setCustomName(null);
+        setCustomNameVisible(false);
+        this.activityLabel = null;
     }
 }
