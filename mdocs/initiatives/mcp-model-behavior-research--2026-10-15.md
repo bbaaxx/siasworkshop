@@ -6,7 +6,7 @@ created: "2026-10-15"
 updated: "2026-10-16"
 owner: ""
 tags: ["research","llm","mcp","agents","architecture"]
-related_wiki: ["reference/local-llm-feasibility", "setup/agent-shared-ledger", "setup/agent-ux-feedback-2026-10-16"]
+related_wiki: ["reference/local-llm-feasibility", "setup/agent-shared-ledger", "setup/agent-ux-feedback-2026-10-16", "setup/session-handoff-2026-10-16"]
 priority: "medium"
 ---
 

@@ -14,6 +14,11 @@ source_initiatives: ["agents-v1-spike-entity-observation--2026-10-14"]
 
 # Session recovery / handoff — read this first
 
+> **SUPERSEDED for current state** by `setup/session-handoff-2026-10-16` (2026-10-16
+> evening). This page is kept for history: the agents-v1 build story, the original
+> environment facts, and the coordinator incident below. The live-LLM-test and MCP
+> story continues in the ledger (SEQ-011+) and the new handoff page.
+
 Written 2026-10-14 at user request so any agent can reconstruct this session.
 Companion: `setup/agent-shared-ledger` (cross-agent coordination, SEQ-000..007),
 `setup/gametest-notes-1-21-1` (toolchain gotchas), design briefs under
