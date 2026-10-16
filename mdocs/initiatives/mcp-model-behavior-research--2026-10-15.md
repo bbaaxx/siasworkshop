@@ -40,6 +40,16 @@ growable protocol for agent behavior.
   LLM intelligence plans at a high level; the mod executes the leaf effects (place,
   build, farm, mine). MCP sessions are **multi-step workflows**, not one-shot
   decision calls.
+- **North star (user, 2026-10-16): progressive transfer of decisions to the LLM and
+  actions to the mod.** Each iteration moves some decisions up (higher abstraction,
+  bigger plans) and some execution down (into mod code). Concrete mechanism en route:
+  the LLM issues well-defined plans (sequential JSON); the mod queues and executes
+  them over long horizons (multi-agent, report-on-completion). Furthest horizon — the
+  model progressively redefines how actions are implemented from usage-derived
+  learning — is explicitly long-term research, not committed scope.
+- **MCP path is feature-flagged, default OFF** (user, 2026-10-16): CurseForge installs
+  must not require Python; the sidecar client activates only via config opt-in. Dev
+  builds run the full toolset.
 
 ## Motivation (pain observed in the live test, SEQ-011)
 
@@ -93,7 +103,11 @@ ad hoc inside `LlmClient`:
 
 - [x] Finish the cloud-model test round (SEQ-014: trailing-slash 404, seconds-fast
       decisions, shelter ping-pong) — requirements input collected
-- [ ] Collect + prioritize the user's playtest feedback batch (2026-10-16)
+- [x] Collect + prioritize the user's playtest feedback batch (SEQ-015)
+- [ ] Prerequisite feature (separate initiative): agent state visibility — nameplate
+      states + working say() + config-gated DEBUG activity log
+- [ ] Feature-flag wiring: MCP client path default-OFF, opt-in via config (no Python
+      dependency for CurseForge installs)
 - [ ] Design the pattern-tree descriptor format (category → patterns → effects),
       building-workflow example as the reference walk
 - [ ] Spike: minimal sidecar exposing the 3 decision tools to one local model and

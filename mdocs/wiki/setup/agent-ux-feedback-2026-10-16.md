@@ -54,10 +54,22 @@ Raw observations, grouped; prioritization happens in the ledger.
   Tool descriptors need hierarchy + sub-tool discovery; prompts stay small by
   retrieve-and-inject per situation.
 
-## What was NOT said (assumptions to validate)
+## Decisions (user, 2026-10-16 — resolves the assumptions below)
 
-- Whether state-indicator text should be nameplate-only, chat-only, or both.
-- How much per-turn autonomy: one tool call per decision cycle vs. an entire
-  pattern walk inside one session.
-- Whether the existing task board remains the planning substrate beneath
-  patterns, or gets subsumed by pattern workflows.
+1. **State indicator**: nameplate rendering. PLUS a config-gated DEBUG mode writing an
+   agent activity log to disk (`debug/siasworkshop/…`, like the inspector snapshots)
+   so the coordinator can read state/decisions from the repo without being in-game.
+2. **Autonomy — the north star (long-term, explicitly NOT v2 scope)**: progressively
+   move the decision framework to the LLM and keep execution in the mod, iteration by
+   iteration — no rush. LLM works at the highest abstraction; the mod queues and runs
+   large action sequences from well-defined LLM plans (example given: "farm 1k of each
+   crop sustainably using several agents, report when done" → LLM emits a sequential
+   JSON plan → mod executes over a long horizon). Furthest horizon: the model may
+   progressively redefine how actions are implemented (usage-derived learning feeds
+   back into the mod's capabilities). Each release moves some decisions up and some
+   actions down; that is the roadmap philosophy.
+3. **Task board stays** — also as the inter-agent collaboration substrate beneath
+   pattern workflows.
+4. **Sidecar stack: Python is fine, gated by a feature flag** (default OFF). The MCP
+   path must be opt-in via config so CurseForge installs never require Python until a
+   polished release exists. Dev builds run the full toolset.
