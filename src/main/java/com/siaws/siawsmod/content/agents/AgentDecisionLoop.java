@@ -167,6 +167,10 @@ public final class AgentDecisionLoop {
             long now, int leaseTicks, int poolMaxEntries, Predicate<String> claimableKeyFilter) {
         List<BoardTask> open = openTasks(level, board).stream()
                 .filter(task -> claimableKeyFilter.test(task.key()))
+                // COMFORT_SHELTER has no executor in v1: the LLM (correctly!) judges it
+                // claimable at night, then the executor releases it — a claim ping-pong.
+                // Hidden like the fallback path (highestPriority) until shelter executes.
+                .filter(task -> task.type() != BoardTask.Type.COMFORT_SHELTER)
                 .toList();
         if (open.isEmpty()) {
             return;
