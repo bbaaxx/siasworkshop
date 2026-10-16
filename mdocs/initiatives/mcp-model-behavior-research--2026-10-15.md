@@ -5,23 +5,42 @@ status: "proposed"
 created: "2026-10-15"
 updated: "2026-10-15"
 owner: ""
-tags: ["research","llm","agents","mcp","architecture"]
+tags: ["research","llm","mcp","agents","architecture"]
 related_wiki: ["reference/local-llm-feasibility", "setup/agent-shared-ledger"]
-priority: "low"
+priority: "medium"
 ---
 
 ## Objective
 
-Investigate whether a dedicated MCP (Model Context Protocol) layer between the mod and
-LLM providers would give **stable decision behavior across models** — so swapping
-bonsai-27b ↔ a 14b local ↔ a cloud model changes latency/cost but not correctness or
-output shape. Parked idea from the user (2026-10-15), to explore after the cloud-model
-test round.
+Build a dedicated **MCP (Model Context Protocol) sidecar** between the mod and LLM
+providers so that swapping models (local sizes/families, cloud) changes
+latency/cost/quality but never the interface between model and mod — a stable,
+growable protocol for agent decisions.
+
+## Direction (user decision, 2026-10-15)
+
+- **Normalization lives in the MCP sidecar**, not in an OpenAI-shim/proxy. The mod
+  keeps a single dumb MCP client; per-model quirks (prompt templates, token budgets,
+  response-format negotiation, tool-call format conversion, reasoning-model
+  detection) are absorbed by the sidecar.
+- **Per-model optimization profiles are allowed for the most-used models** on top of
+  the generic path — the sidecar hosts profiles (prompt variants, budgets,
+  capability flags) keyed by model id/family.
+- **The mod exposes its action catalog to the sidecar as MCP tools.** The mod owns a
+  registry of programmed actions and patterns (starting with the decision trio
+  `claim(task_key)` / `rest()` / `say(player,msg)`, growing as the mod's configured
+  actions and components grow — e.g. build patterns, deposit/withdraw, chronicle
+  writes). Each capability added to the mod becomes a tool in the MCP layer. The
+  tool catalog **is** the stable interface: models can be switched and optimized,
+  but the protocol by which they interact with the mod never moves.
+- **Decoupling is a feature, not just hygiene**: new mod capabilities ship by
+  registering a tool, without touching model integration code; new models onboard by
+  adding a sidecar profile, without touching the mod.
 
 ## Motivation (pain observed in the live test, SEQ-011)
 
-Every model behaves differently in the same pipeline, and the mod absorbs the variance
-ad hoc:
+Every model behaves differently in the same pipeline, and v1 absorbed the variance
+ad hoc inside `LlmClient`:
 
 - Reasoning models burn 500–900 hidden tokens before answering (empty `content` at
   512 `max_tokens`); non-reasoning models answer in ~20 tokens. Budget is per-model
@@ -30,55 +49,55 @@ ad hoc:
   occasionally unparseable bodies (`bad_json`).
 - Wire compat varies: llama.cpp rejects `response_format: json_object`; OpenAI
   accepts it; some servers support `json_schema` constrained decoding, some don't.
-- Prompt compliance varies by family (Qwen vs Llama vs GPT): the same system prompt
-  nudges different styles — currently fixed in `LlmPrompts`, one-size-fits-all.
+- Prompt compliance varies by family (Qwen vs Llama vs GPT): currently one fixed
+  `LlmPrompts` system line, one-size-fits-all.
 
-The v1 answer was: normalize in the client (defensive parsing, prompt-constrained
-JSON, generous token budget). That works but pushes per-model complexity into the mod.
-
-## Core hypothesis
-
-If the **action contract is exposed as MCP tools** (e.g. `claim(task_key: string)`,
-`rest()`, `say(player, msg)`) with input schemas, then models with tool/function
-calling emit structured calls instead of prose-JSON — removing the entire parse
-failure class. Model differences get absorbed by the MCP layer: per-model adapters
-(prompt templates, token budgets, response-format negotiation, tool-call format
-conversion), so the mod speaks one dialect and the layer translates.
-
-## Research questions
+## Research questions (given the direction above)
 
 1. Which local sizes (4B/14B/27B on M3 Pro) and cloud models support tool/function
-   calling reliably enough for a 3-tool contract? Failure modes when unsupported?
-2. Does tool-calling measurably reduce malformed/unusable decisions vs
-   prompt-constrained JSON (current `LlmPrompts` + `LlmActions` path)?
-3. Where should normalization live: in-mod (current `LlmClient`), an MCP server the
-   mod talks to, or an OpenAI-compatible proxy/shim (e.g. LiteLLM-style) that
-   normalizes wire + tools while keeping the mod's HTTP client dumb?
+   calling reliably enough for a growing tool catalog? Failure modes when
+   unsupported — and does prompt-constrained JSON remain the fallback inside the
+   sidecar for those?
+2. Does tool-calling measurably reduce malformed/unusable decisions vs the current
+   prompt-constrained JSON path? (Metric target: `bad_json`/fallback rate.)
+3. **Tool-catalog evolution**: how do we version/schema the tool registry as the
+   mod grows — mod ships tool descriptors, sidecar reflects them, models see them;
+   how to keep prompts small when the catalog is large (retrieve-and-inject per
+   situation, like build cards today)?
 4. What does "stable behavior" mean measurably — a scenario corpus (recorded
-   observations + expected action classes) with assertions, replayable offline
-   against any endpoint; can we build a model-behavior CI around it?
-5. Ops: extra hop latency, offline-first fallback preserved (template path when the
-   layer/endpoint is down), and what runs the layer (sidecar process? embedded?).
+   observations + expected action classes) replayable offline against any endpoint;
+   can the sidecar host this model-behavior CI (A/B profiles, regression runs)?
+5. Ops: sidecar lifecycle (dev loop: process manager? Gradle task?), extra-hop
+   latency budget, offline-first preserved (template fallback when sidecar/endpoint
+   down — the current in-mod template path stays as the last resort).
 
-## Candidate approaches to compare
+## Considered and set aside (rationale recorded)
 
-- **A. Status quo**: in-mod normalization (current), per-model config knobs.
-- **B. MCP server sidecar**: mod connects as MCP client; tools = decision contract;
-  per-model adapters inside the server; mod's HTTP surface shrinks to one client.
-- **C. OpenAI-compatible proxy/shim**: mod keeps current client; proxy adds
-  response_format/tool translation, per-model routing, caching, observability.
-- **D. Per-model profiles in config**: no new process; prompt templates + budgets +
-  capability flags per model family in the mod. Cheapest, least isolation.
+- **OpenAI-shim/proxy normalization (LiteLLM-style)**: rejected — user wants
+  normalization in the MCP sidecar; a shim would still leave tool semantics
+  model-specific.
+- **Per-model profiles inside the mod**: demoted — profiles move into the sidecar;
+  the mod stays model-agnostic.
+- **Status quo (in-mod normalization)**: the v1 fallback path stays for offline, but
+  is not the integration strategy.
 
 ## Plan (not started — parked)
 
-- [ ] Finish cloud-model test round (user's current track) and capture its failure
-      modes as requirements input
-- [ ] Spike B vs C with one local model + one cloud model on the 3-tool contract
-- [ ] Define the scenario corpus + assertions for question 4
-- [ ] Write recommendation to `reference/` wiki; decide adopt/reject per approach
+- [ ] Finish the cloud-model test round (current track; its failure modes become
+      requirements input here)
+- [ ] Spike: minimal sidecar exposing the 3 decision tools to one local model and
+      one cloud model; measure decision latency + malformed-decision rate vs v1
+- [ ] Design the mod-side tool registry (descriptor format, registration, growth
+      path) — starts as a reflection of `LlmActions`, decouples from it
+- [ ] Scenario corpus + assertions for question 4
+- [ ] Recommendation → `reference/` wiki; if adopted, plan the LlmClient→MCP-client
+      migration (config: sidecar address instead of endpoint/model/apiKey)
 
 ## Progress Log
 
 - [2026-10-15] Initiative created from user note after LLM live-test session
       (commits f974a47, c9ebf8d, 212f147, 2daa823; ledger SEQ-011).
+- [2026-10-15] User direction recorded: MCP-sidecar normalization (not shim), the
+      mod exposes its action/pattern catalog as MCP tools — the tool catalog is the
+      stable model↔mod interface, growing with mod capabilities; per-model
+      optimization profiles allowed for hot models. Priority low→medium.
