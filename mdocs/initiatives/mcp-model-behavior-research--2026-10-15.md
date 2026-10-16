@@ -83,8 +83,9 @@ ad hoc inside `LlmClient`:
 
 ## Plan (not started — parked)
 
-- [ ] Finish the cloud-model test round (current track; its failure modes become
-      requirements input here)
+- [x] Finish the cloud-model test round (current track; its failure modes become
+      requirements input here) — DONE 2026-10-16 (SEQ-014: trailing-slash 404,
+      seconds-fast decisions, shelter ping-pong)
 - [ ] Spike: minimal sidecar exposing the 3 decision tools to one local model and
       one cloud model; measure decision latency + malformed-decision rate vs v1
 - [ ] Design the mod-side tool registry (descriptor format, registration, growth
@@ -101,3 +102,6 @@ ad hoc inside `LlmClient`:
       mod exposes its action/pattern catalog as MCP tools — the tool catalog is the
       stable model↔mod interface, growing with mod capabilities; per-model
       optimization profiles allowed for hot models. Priority low→medium.
+- [2026-10-16] Cloud test round done (SEQ-014) — requirements input collected:
+      per-model reasoning budgets, wire quirks (double-slash 404), task-claim
+      semantics. Awaiting user's gameplay feedback batch before prioritizing.

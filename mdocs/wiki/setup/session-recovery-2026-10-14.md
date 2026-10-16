@@ -149,9 +149,9 @@ tools (per user instruction) and write state to disk first.
    SEQ-011 holds the full live-LLM-test story), and
    `reference/agent-embodiment-observation` (design source of truth).
 2. `mdocs status` — idle/COMPLETE.
-3. LLM live smoke test PASSED 2026-10-15 (SEQ-011). Fixes in f974a47, c9ebf8d,
-   212f147; 27/27 gametests green; wire-compat notes in
-   reference/local-llm-feasibility.
+3. LLM live smoke test PASSED 2026-10-15 (SEQ-011); cloud round PASSED 2026-10-16
+   (SEQ-014, OpenRouter). Fixes in f974a47…3414e67; 28/28 gametests green;
+   wire-compat notes in reference/local-llm-feasibility.
 4. Next candidates (user picks): cloud-model test round (current track — config-only
    switch: endpoint/model/apiKey); then research initiative
    mcp-model-behavior-research--2026-10-15 (parked, SEQ-012: MCP layer for
