@@ -104,8 +104,8 @@ ad hoc inside `LlmClient`:
 - [x] Finish the cloud-model test round (SEQ-014: trailing-slash 404, seconds-fast
       decisions, shelter ping-pong) — requirements input collected
 - [x] Collect + prioritize the user's playtest feedback batch (SEQ-015)
-- [ ] Prerequisite feature (separate initiative): agent state visibility — nameplate
-      states + working say() + config-gated DEBUG activity log
+- [x] Prerequisite feature (separate initiative): agent state visibility — nameplate
+      states + working say() + config-gated DEBUG activity log (DONE, f1e1c71)
 - [ ] Feature-flag wiring: MCP client path default-OFF, opt-in via config (no Python
       dependency for CurseForge installs)
 - [ ] Design the pattern-tree descriptor format (category → patterns → effects),

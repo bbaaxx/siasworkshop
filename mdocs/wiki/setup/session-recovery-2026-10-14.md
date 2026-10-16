@@ -152,11 +152,8 @@ tools (per user instruction) and write state to disk first.
 3. LLM live smoke test PASSED 2026-10-15 (SEQ-011); cloud round PASSED 2026-10-16
    (SEQ-014, OpenRouter). Fixes in f974a47…3414e67; 28/28 gametests green;
    wire-compat notes in reference/local-llm-feasibility.
-4. Next candidates (user picks): cloud-model test round (current track — config-only
-   switch: endpoint/model/apiKey); then research initiative
-   mcp-model-behavior-research--2026-10-15 (parked, SEQ-012: MCP layer for
-   model-stable decisions); foundation-block GUI for pool/board + blueprint
-   queueing; chronicle/gossip flavor layer (local-llm-feasibility Phase 1);
-   shelter-task execution; observation zero-POI nit; applyDecisionAction mapping
-   for valid-but-idle actions like light(); production model choice (fast
-   non-reasoning local model) + decision-latency tuning.
+4. Next candidates (user picks): MCP sidecar spike (initiative
+   mcp-model-behavior-research--2026-10-15, prerequisites done — SEQ-012/013/015/
+   016/017); foundation-block GUI for pool/board + blueprint queueing; shelter-task
+   execution; chronicle/gossip flavor layer (local-llm-feasibility Phase 1);
+   observation zero-POI nit; production model choice + decision-latency tuning.
