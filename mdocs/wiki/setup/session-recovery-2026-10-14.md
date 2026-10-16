@@ -152,7 +152,10 @@ tools (per user instruction) and write state to disk first.
 3. LLM live smoke test PASSED 2026-10-15 (SEQ-011). Fixes in f974a47, c9ebf8d,
    212f147; 27/27 gametests green; wire-compat notes in
    reference/local-llm-feasibility.
-4. Next candidates (user picks): foundation-block GUI for pool/board + blueprint
+4. Next candidates (user picks): cloud-model test round (current track — config-only
+   switch: endpoint/model/apiKey); then research initiative
+   mcp-model-behavior-research--2026-10-15 (parked, SEQ-012: MCP layer for
+   model-stable decisions); foundation-block GUI for pool/board + blueprint
    queueing; chronicle/gossip flavor layer (local-llm-feasibility Phase 1);
    shelter-task execution; observation zero-POI nit; applyDecisionAction mapping
    for valid-but-idle actions like light(); production model choice (fast
