@@ -1,0 +1,7 @@
+[
+  {
+    "name": "bridge_claim",
+    "modes": ["prompt"],
+    "content": "{\"tool\":\"claim\",\"args\":{\"task\":\"build:mazons:7d2f\"}}"
+  }
+]

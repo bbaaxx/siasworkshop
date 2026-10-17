@@ -107,6 +107,26 @@ public class Config {
                     "tasks (template fallback, or LLM-picked when llm.enabled) and execute them.")
             .define("agents.executionLoopEnabled", true);
 
+    public static final ModConfigSpec.BooleanValue AGENTS_MCP_ENABLED = BUILDER
+            .comment("Route agent decisions through the MCP sidecar (see reference/mcp-pattern-tree-design):",
+                    "the mod spawns agents.mcp.command as a subprocess and speaks MCP over its stdio, the",
+                    "sidecar hosts the model session. DEFAULT OFF: CurseForge installs must not require",
+                    "Python. When enabled this takes precedence over the direct llm.* path; on any sidecar",
+                    "failure decisions fall back to templates (offline-first).")
+            .define("agents.mcp.enabled", false);
+
+    public static final ModConfigSpec.ConfigValue<String> AGENTS_MCP_COMMAND = BUILDER
+            .comment("Command that launches the MCP sidecar (split on spaces). Resolved against the game",
+                    "working directory — use an absolute path outside dev. Example (dev):",
+                    "python3 /path/to/siasworkshop/sidecar/sidecar.py --endpoint http://127.0.0.1:1234/v1",
+                    "--model prism-ml/bonsai-27b")
+            .define("agents.mcp.command", "python3 sidecar/sidecar.py");
+
+    public static final ModConfigSpec.IntValue AGENTS_MCP_DECISION_TIMEOUT_SECONDS = BUILDER
+            .comment("Timeout for one sidecar decision (the sidecar observes, calls the model, and acts;",
+                    "reasoning models can take minutes). On timeout the agent falls back to templates.")
+            .defineInRange("agents.mcp.decisionTimeoutSeconds", 180, 10, 600);
+
     public static final ModConfigSpec.IntValue AGENTS_DECISION_INTERVAL_SECONDS = BUILDER
             .comment("How often idle agents run a decision pass (observe, retrieve, pick), in",
                     "seconds. Executing an already-claimed task runs every tick regardless.")

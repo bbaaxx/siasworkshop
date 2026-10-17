@@ -95,6 +95,29 @@ Metrics append to JSONL (`--out`, default `metrics-<ts>.jsonl`); a summary table
 - `replay/script.json` — scripted raw model replies (valid, fenced, prose-wrapped,
   wrong-shape, unknown tool, bad args, exec-reject, native tool_calls, garbage).
 
+## S1: the in-mod bridge
+
+`sidecar.py` is the real child-role sidecar the mod spawns (config `agents.mcp.enabled`,
+default OFF). It speaks the client role over its own stdio: initialize handshake, serves
+`decide(agent)`, and for each decision pulls observation/board via mod tools, asks the
+model (or `--replay` scripted replies), validates, and executes claim/rest/say via mod
+tools. The Java side (`content/mcp/`): `McpSidecar` (transport + lifecycle + failure
+collapse), `McpTools` (the mod's catalog + server-thread dispatch + structured rejects),
+routed from `AgentDecisionLoop` ahead of the direct `llm.*` path, with template fallback
+on any sidecar failure.
+
+```bash
+# bridge test: sidecar.py against mockmod.py over crossed pipes (production topology)
+python3 test_sidecar_bridge.py
+
+# what the mod would run (dev): point agents.mcp.command at an absolute path, e.g.
+python3 /path/to/sidecar/sidecar.py --endpoint http://127.0.0.1:1234/v1 --model prism-ml/bonsai-27b
+```
+
+Java gametests (`AgentsMcpGameTest`) cover the mod side against an in-JVM fake peer:
+handshake + catalog serving, a full decide cycle claiming on the real board, structured
+rejects for malformed calls, and template fallback on a dead sidecar.
+
 ## Encoded traps (from the ledger — do not relearn)
 
 - Never send `response_format` — LM Studio (llama.cpp) rejects `json_object` (SEQ-011).

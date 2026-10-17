@@ -113,8 +113,11 @@ ad hoc inside `LlmClient`:
       one cloud model; measure decision latency + malformed-decision rate vs v1
       → S0 done under `sidecar/` (2026-10-16, results SEQ-020): replay 20/20,
       cloud 9/9 ok, local v1 failed while both MCP modes passed
-- [ ] Feature-flag wiring: MCP client path default-OFF, opt-in via config (no Python
+- [x] Feature-flag wiring: MCP client path default-OFF, opt-in via config (no Python
       dependency for CurseForge installs) — S1, with in-mod gametest
+      → DONE (2026-10-16, results SEQ-022): Config agents.mcp.* block (default OFF),
+      McpSidecar transport + McpTools catalog/dispatch in content/mcp/, decision loop
+      routing with template fallback, real sidecar.py bridge, 4 gametests (34/34 green)
 - [ ] S2: first real pattern tree against the building walk (three patterns against
       real mod machinery, same scenario as a v1 build task)
       → DONE in the sidecar harness (2026-10-16, results SEQ-021): six-step building
@@ -143,6 +146,21 @@ ad hoc inside `LlmClient`:
       transport, 4 tool kinds, descriptor format, pattern-card expansion,
       session-state split, safety, flag, prompt economy, building-walk reference
       trace, S0-S2 spike plan, open questions).
+- [2026-10-16] S1 done (first Java slice): Config `agents.mcp.*` block (enabled default
+      OFF, command, decision timeout); `content/mcp/McpSidecar` (spawn/lifecycle,
+      symmetric newline JSON-RPC over child stdio, both peers client+server, failure
+      collapse into CallResult); `content/mcp/McpTools` (the mod's S0 catalog +
+      server-thread dispatch + structured rejects); decision loop routes through the
+      sidecar ahead of the direct llm.* path with template fallback on any failure;
+      entrypoint starts/stops the sidecar with the server. Python: real `sidecar.py`
+      bridge (client role, serves `decide(agent)`, pulls observation/board via mod
+      tools, prompt/native model surface, --replay offline mode) + `test_sidecar_bridge.py`
+      (sidecar.py vs mockmod.py over crossed pipes = production topology, PASS).
+      Gametests AgentsMcpGameTest (4): handshake + catalog, full decide cycle claiming
+      on the real board, malformed-call rejects, dead-sidecar fallback — 34/34 green.
+      Gametest war stories: production tick loop resolves intentionally-malformed test
+      tasks mid-assert (assert board RECORD + claimant, not live claim state); the
+      shared batch world + board ordering means never claim "whatever is listed first".
 - [2026-10-16] S2 done in the sidecar harness: the six-step building walk runs
       end-to-end (think → analyze_terrain → design → select_materials →
       create_blueprint → apply_blueprint → observe_task convergence), D5 situational

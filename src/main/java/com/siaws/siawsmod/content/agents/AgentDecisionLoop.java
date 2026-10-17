@@ -11,6 +11,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Predicate;
 
+import com.google.gson.JsonObject;
 import com.siaws.siawsmod.SiasWorkshop;
 import com.siaws.siawsmod.config.Config;
 import com.siaws.siawsmod.content.agents.build.Blueprint;
@@ -27,6 +28,7 @@ import com.siaws.siawsmod.content.llm.LlmActions;
 import com.siaws.siawsmod.content.llm.LlmActions.LlmAction;
 import com.siaws.siawsmod.content.llm.LlmClient;
 import com.siaws.siawsmod.content.llm.LlmPrompts;
+import com.siaws.siawsmod.content.mcp.McpSidecar;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -186,6 +188,26 @@ public final class AgentDecisionLoop {
             claimByPriority(level, board, agent, open, now, leaseTicks);
             return;
         }
+        // MCP sidecar path takes precedence over the direct LLM path when enabled and alive:
+        // the sidecar hosts the model session and executes the decision through McpTools.
+        if (Config.AGENTS_MCP_ENABLED.get()) {
+            McpSidecar sidecar = McpSidecar.current();
+            if (sidecar != null) {
+                if (!inFlightRequests.add(agent.getUUID())) {
+                    return; // one request in flight per agent
+                }
+                AgentActivity.deciding(agent);
+                AgentActivity.dispatched(level, agent, open.size());
+                JsonObject mcpArgs = new JsonObject();
+                mcpArgs.addProperty("agent", agent.getUUID().toString());
+                sidecar.callTool("decide", mcpArgs, Config.AGENTS_MCP_DECISION_TIMEOUT_SECONDS.get())
+                        .thenAccept(result -> level.getServer().execute(
+                                () -> handleMcpResult(level, agent, board, open, leaseTicks, result)));
+                return;
+            }
+            // flag on but sidecar dead → fall through to the direct path with a one-line warn
+            SiasWorkshop.LOGGER.warn("[AgentDecisionLoop] agents.mcp.enabled but sidecar unavailable; using direct path");
+        }
         if (!inFlightRequests.add(agent.getUUID())) {
             return; // one request in flight per agent
         }
@@ -242,6 +264,53 @@ public final class AgentDecisionLoop {
         ticksUntilRun = 0;
     }
 
+    /**
+     * MCP decision completion, always on the server thread. The sidecar has already executed
+     * its decision through {@code McpTools} (claim/rest/say); this reconciles: a reported claim
+     * the board doesn't reflect (stale key, race) and an unusable result both fall back to the
+     * template priority claim, exactly like an unusable direct-LLM reply.
+     */
+    public static void handleMcpResult(ServerLevel level, WorkshopAgentEntity agent, TaskBoard board,
+            List<BoardTask> open, int leaseTicks, McpSidecar.CallResult result) {
+        inFlightRequests.remove(agent.getUUID());
+        if (agent.isRemoved()) {
+            return;
+        }
+        long now = level.getGameTime();
+        if (!result.usable()) {
+            SiasWorkshop.LOGGER.warn("[AgentDecisionLoop] agent {} MCP decision unusable ({}), falling back to templates",
+                    agent.getUUID(), result.failure());
+            AgentActivity.fallback(level, agent, String.valueOf(result.failure()));
+            claimByPriority(level, board, agent, open, now, leaseTicks);
+            return;
+        }
+        JsonObject payload = mcpPayload(result.json());
+        String decision = payload.has("decision") ? payload.get("decision").getAsString() : "unknown";
+        String detail = payload.has("detail") ? payload.get("detail").getAsString() : "";
+        SiasWorkshop.LOGGER.info("[AgentDecisionLoop] agent {} decided via MCP sidecar: {} {}",
+                agent.getUUID(), decision, detail);
+        AgentActivity.decision(level, agent, "mcp:" + decision, detail);
+        if ("claim".equals(decision) && board.claimedBy(agent.getUUID()).isEmpty()) {
+            claimByPriority(level, board, agent, open, now, leaseTicks);
+        }
+    }
+
+    /** Extract the JSON the sidecar put in tools/call content[0].text; {} when absent. */
+    private static JsonObject mcpPayload(JsonObject callResult) {
+        try {
+            if (callResult.has("content") && callResult.get("content").isJsonArray()
+                    && !callResult.getAsJsonArray("content").isEmpty()) {
+                String text = callResult.getAsJsonArray("content").get(0).getAsJsonObject().get("text").getAsString();
+                com.google.gson.JsonElement parsed = com.google.gson.JsonParser.parseString(text);
+                if (parsed.isJsonObject()) {
+                    return parsed.getAsJsonObject();
+                }
+            }
+        } catch (RuntimeException ignored) {
+        }
+        return new JsonObject();
+    }
+
     private static List<BuildCard> cardsFor(List<BoardTask> open) {
         BoardTask build = open.stream().filter(task -> task.type() == BoardTask.Type.BUILD).findFirst().orElse(null);
         if (build == null) {
@@ -290,8 +359,8 @@ public final class AgentDecisionLoop {
         }
     }
 
-    /** Fallback priority: comfort first, then builds; shelter is never fallback-claimed. */
-    private static BoardTask highestPriority(List<BoardTask> open) {
+    /** Fallback priority: comfort first, then builds; shelter is never fallback-claimed. Public: shared by McpTools. */
+    public static BoardTask highestPriority(List<BoardTask> open) {
         return open.stream()
                 .filter(task -> task.type() != BoardTask.Type.COMFORT_SHELTER)
                 .min(Comparator.comparingInt(task -> task.type() == BoardTask.Type.COMFORT_LIGHT ? 0 : 1))
@@ -309,7 +378,12 @@ public final class AgentDecisionLoop {
         }
     }
 
-    private static List<BoardTask> openTasks(ServerLevel level, TaskBoard board) {
+    /**
+     * The board tasks an agent may see at a decision point: OPEN, excluding COMFORT_SHELTER
+     * (no executor yet — claiming it ping-pongs) and comfort deficits whose player left.
+     * Public: shared by the MCP tool surface ({@code McpTools}).
+     */
+    public static List<BoardTask> openTasks(ServerLevel level, TaskBoard board) {
         List<BoardTask> open = new ArrayList<>();
         for (BoardTask task : board.tasks()) {
             if (task.status() != BoardTask.Status.OPEN) {

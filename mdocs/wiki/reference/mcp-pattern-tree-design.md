@@ -231,6 +231,24 @@ polling (mock advances the build one tick per poll).
 - `WalkResult.reject_details` now records step-level rejects for the scenario corpus
   (Q4).
 
+## S1 in-mod results (2026-10-16)
+
+The MCP path is real in the mod (ledger SEQ-022): `Config agents.mcp.*` (default OFF),
+`content/mcp/McpSidecar` (spawn/lifecycle, symmetric JSON-RPC over child stdio, both
+peers client+server, failure collapse + template fallback), `content/mcp/McpTools` (S0
+catalog, server-thread dispatch, structured rejects), decision routing with the sidecar
+taking precedence over the direct `llm.*` path. The Python `sidecar.py` bridge serves
+`decide(agent)` and runs the observe → model → claim/rest/say loop through mod tools.
+
+- 34/34 gametests green, including 4 MCP tests against an in-JVM fake peer
+  (handshake/catalog, decide-claims-on-the-real-board, malformed rejects, dead-sidecar
+  fallback) and the python bridge test over crossed pipes (production topology).
+- One design refinement landed during S1: because the mod's `decide` call is async and
+  inbound mod-tool calls are server-thread-queued, the duplex flow cannot deadlock — the
+  constraint that shaped the whole transport design.
+- Live in-game verification (runClient + enabled flag + real model) is the remaining
+  user-side step, same pattern as the SEQ-011 live rounds.
+
 ## Spike plan (next, per initiative)
 
 - **S0 — plumbing + parity.** Sidecar speaks MCP over stdio to a mock mod catalog

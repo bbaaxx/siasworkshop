@@ -9,6 +9,7 @@ import com.siaws.siawsmod.content.agents.build.BuildCommand;
 import com.siaws.siawsmod.content.agents.build.BlueprintLibrary;
 import com.siaws.siawsmod.content.agents.AgentDecisionLoop;
 import com.siaws.siawsmod.content.agents.tasks.ComfortDetectors;
+import com.siaws.siawsmod.content.mcp.McpSidecar;
 import com.siaws.siawsmod.data.ModDataGenerators;
 import com.siaws.siawsmod.init.SiasWorkshopBlockEntities;
 import com.siaws.siawsmod.init.SiasWorkshopBlocks;
@@ -51,6 +52,8 @@ public class SiasWorkshop {
         NeoForge.EVENT_BUS.addListener(AgentDecisionLoop::onServerTick);
         NeoForge.EVENT_BUS.addListener(AgentDecisionLoop::onServerStopping);
         NeoForge.EVENT_BUS.addListener((ServerStartingEvent event) -> BlueprintLibrary.INSTANCE.reload());
+        NeoForge.EVENT_BUS.addListener((ServerStartingEvent event) -> McpSidecar.startFor(event.getServer()));
+        NeoForge.EVENT_BUS.addListener((ServerStoppingEvent event) -> McpSidecar.stop());
         NeoForge.EVENT_BUS.addListener((AddReloadListenerEvent event) -> event.addListener(BuildCards.INSTANCE));
         NeoForge.EVENT_BUS.addListener(BuildCommand::register);
 

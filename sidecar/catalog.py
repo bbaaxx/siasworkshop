@@ -106,10 +106,13 @@ def catalog_name(wire_name: str) -> str:
 
 
 # The S0 parity surface: the v1 three decision actions + two observation tools.
+# `agent` (uuid string, optional in the mock) mirrors the Java surface where every
+# agent-scoped tool takes it; the v1 spike scripts simply don't send it.
 S0_TOOLS: list[Tool] = [
     Tool(id="observe.self", kind="observe",
          description="Read-only: this agent's compact situation snapshot (self, players, nearby blocks/entities, environment).",
-         inputs={"type": "object", "properties": {}}),
+         inputs={"type": "object",
+                 "properties": {"agent": {"type": "string"}}}),
     Tool(id="observe.board", kind="observe",
          description="Read-only: the shared task board — open tasks with their exact claim keys.",
          inputs={"type": "object", "properties": {}}),
@@ -117,16 +120,20 @@ S0_TOOLS: list[Tool] = [
          description="Start work on an OPEN TASK from the board. Once claimed, the agent's hands "
                      "(walk, place, light, build) run automatically in the mod.",
          inputs={"type": "object",
-                 "properties": {"task": {"type": "string"}},
+                 "properties": {"agent": {"type": "string"},
+                                "task": {"type": "string"}},
                  "required": []},
          args_hint="task=<exact key from the board> (optional; omitted = highest-priority open task)"),
     Tool(id="rest", kind="effect",
          description="Deliberately idle this cycle.",
-         inputs={"type": "object", "properties": {}}, args_hint=""),
+         inputs={"type": "object",
+                 "properties": {"agent": {"type": "string"}}},
+         args_hint=""),
     Tool(id="say", kind="effect",
          description="Speak one short line to a player (shows up in their chat).",
          inputs={"type": "object",
-                 "properties": {"player": {"type": "string"}, "msg": {"type": "string"}},
+                 "properties": {"agent": {"type": "string"},
+                                "player": {"type": "string"}, "msg": {"type": "string"}},
                  "required": ["player", "msg"]},
          args_hint="player=<name>, msg=<short text>"),
 ]
