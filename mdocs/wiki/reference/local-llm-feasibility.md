@@ -4,7 +4,7 @@ title: "Local Small LLM Feasibility (Qwen3-class, 4-bit, Apple M3 Pro)"
 category: "reference"
 created: "2026-10-13"
 updated: "2026-10-16"
-related_initiatives: ["local-llm-feasibility--2026-10-13", "mcp-model-behavior-research--2026-10-15"]
+related_initiatives: ["local-llm-feasibility--2026-10-13", "mcp-model-behavior-research--2026-10-15", "research-digest-jev-jeva-decision-layer--2026-10-17"]
 tags: ["llm","local-llm","qwen","apple-silicon","capabilities"]
 lifecycle: "draft"
 knowledge_type: "reference"

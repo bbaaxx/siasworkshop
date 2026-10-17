@@ -4,7 +4,7 @@ title: "MCP pattern-tree design — descriptor format, session model, reference 
 category: "reference"
 created: "2026-10-16"
 updated: "2026-10-16"
-related_initiatives: ["mcp-model-behavior-research--2026-10-15", "mcp-hotplug-debug-access--2026-10-17"]
+related_initiatives: ["mcp-model-behavior-research--2026-10-15", "mcp-hotplug-debug-access--2026-10-17", "research-digest-player-1-synthetic-game-agents--2026-10-17", "research-digest-jev-jeva-decision-layer--2026-10-17"]
 tags: ["mcp","llm","agents","architecture","design","pattern-tree"]
 lifecycle: "evolving"
 lifecycle: "evolving"
@@ -248,6 +248,38 @@ taking precedence over the direct `llm.*` path. The Python `sidecar.py` bridge s
   constraint that shaped the whole transport design.
 - Live in-game verification (runClient + enabled flag + real model) is the remaining
   user-side step, same pattern as the SEQ-011 live rounds.
+
+## Debug access channel (hot-plug, 2026-10-17)
+
+Initiative `mcp-hotplug-debug-access`: the S1 live tests showed every model-behavior
+question cost a manual forensics round (SEQ-024) — the wire was invisible. Two
+default-OFF, localhost-only, dev-only channels now exist (built + gametested
+2026-10-17; first live use is the next dev round — tailing the tap while the model
+decides):
+
+- **P1 — passive wire tap** (`sidecar.py --tap <file>`): every inbound/outbound
+  protocol line appended as one JSON object (`{"ts", "dir": "in"|"out", "msg"}`),
+  tail-able in real time and replayable offline (same shape `replay/` consumes).
+  Answers "what did the model see/say" for the sidecar channel. Stdout stays
+  protocol-pure; wire corruption surfaces as `"unparsed"` rows. Test: `test_tap.py`.
+- **P2 — active attach** (`agents.mcp.debugPort > 0`, requires `agents.mcp.enabled`):
+  `content/mcp/McpDebugServer` listens on 127.0.0.1:<port> speaking the same
+  newline-JSON-RPC server role, but serving a READ-ONLY catalog
+  (`McpTools.listDescriptor(true)` → observe_self/observe_board) with an explicit
+  `McpTools.isReadOnly` dispatch guard — write tools are rejected by name even when
+  invoked directly. Attach client: `tools/mcp_probe.py` (list / self / board).
+  Lifecycle rides `McpSidecar.startFor/stop`; a bind failure logs and never takes
+  the sidecar down. The gate predicate `McpDebugServer.shouldStart(mcpEnabled, port)`
+  is pure and pinned by gametest (ModConfigSpec bakes at JVM start).
+
+Design choices vs the initiative's open questions: (1) mod-side transport — the mod
+owns the tool registry, so the debug channel reuses `McpTools.dispatch` on the server
+thread rather than proxying through the sidecar; (2) fresh `observe_*` at attach time
+is enough for a live debugger — P1's tap already answers exact-wire for the S1
+channel; (3) read-only by default; write gating behind a second flag is parked until
+a use case appears (the corpus replay path made it unnecessary so far); (4) the tap
+format doubles as the recorded-artifact format for corpus scenarios
+(mcp-model-behavior-research Q4).
 
 ## Spike plan (next, per initiative)
 

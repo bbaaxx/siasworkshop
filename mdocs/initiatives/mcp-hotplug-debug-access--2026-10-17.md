@@ -1,13 +1,14 @@
 ---
 id: "mcp-hotplug-debug-access--2026-10-17"
 title: "MCP hot-plug debug access: observe the live model↔mod channel"
-status: "proposed"
+status: "complete"
 created: "2026-10-17"
 updated: "2026-10-17"
 owner: "coordinator"
 tags: ["mcp", "agents", "tooling", "debug", "observability"]
-related_wiki: ["reference/mcp-pattern-tree-design", "setup/agent-shared-ledger", "setup/session-handoff-2026-10-17"]
+related_wiki: ["reference/mcp-pattern-tree-design", "setup/agent-shared-ledger", "setup/session-handoff-2026-10-17", "reference/minecraft-mcp-servers"]
 priority: "medium"
+graduated: "2026-10-17"
 ---
 
 ## Objective
@@ -75,15 +76,31 @@ off. Dev builds only.
 
 ## Plan
 
-- [ ] P1: `--tap <file>` wire tap in `sidecar.py` (timestamped, direction-tagged lines)
+- [x] P1: `--tap <file>` wire tap in `sidecar.py` (timestamped, direction-tagged lines)
       + a tailing recipe for the coordinator; validate during the next live test round
-- [ ] P2: `agents.mcp.debugPort` config (0 = off) + localhost TCP transport on the mod
+      → DONE (2026-10-17): `WireTap` class, `{"ts","dir","msg"}` JSONL per line, append
+      mode, stdout stays protocol-pure, tap I/O errors never break the wire; unparsed
+      lines recorded as wire-corruption evidence; `sidecar/test_tap.py` PASS; README
+      tail recipe (live: `tail -f`; decisions only: grep dir=in tools/call)
+- [x] P2: `agents.mcp.debugPort` config (0 = off) + localhost TCP transport on the mod
       reusing the existing MCP dispatch; `tools/mcp_probe.py` stdlib attach client
       (handshake → tools/list → observe_self/observe_board → optional traffic echo)
-- [ ] Gametest for the debug transport (in-JVM socket client asserting catalog + a
+      → DONE (2026-10-17): `content/mcp/McpDebugServer` (loopback-only bind, thread-per-
+      connection, read-only catalog via McpTools.listDescriptor(true) + isReadOnly
+      dispatch guard, server-thread execution like the sidecar channel, lifecycle rides
+      McpSidecar.startFor/stop, bind failure never kills the sidecar); `tools/mcp_probe.py
+      list|self|board`; stdio hygiene checked by inspection (only JSON-RPC on stdout)
+- [x] Gametest for the debug transport (in-JVM socket client asserting catalog + a
       read-only observation), default-off gating verified by inspection as with
       `agents.mcp.enabled`
-- [ ] Update `reference/mcp-pattern-tree-design` with the debug-access channel section
+      → DONE (2026-10-17): `McpDebugGameTest` — pure gate predicate pinned
+      (never starts when mcp off or port 0) + in-JVM socket client over ephemeral port
+      asserting read-only catalog, observe_board on the real board, and claim rejected
+      by name; needed `mcpdebuggametest.empty.nbt` (structures resolve per class name)
+- [x] Update `reference/mcp-pattern-tree-design` with the debug-access channel section
+      → DONE (2026-10-17): "Debug access channel (hot-plug)" section incl. the four
+      open-question resolutions (mod-side transport; fresh observe at attach; read-only
+      default; tap format = corpus artifact format)
 
 ## Progress Log
 
@@ -91,3 +108,10 @@ off. Dev builds only.
       to provide you with MCP access so that you can experience firsthand what the LLMs
       are seeing" — hot-plug into the running MCP server, tackled as its own initiative
       alongside mcp-model-behavior-research (ledger SEQ-025).
+- [2026-10-17] P1+P2 implemented and green: python `test_sidecar_bridge.py` + new
+      `test_tap.py` PASS; `./gradlew runGameTestServer` 38/38 (was 36; +2 debug
+      transport tests). Base commit a6edcfd, code uncommitted at close. First LIVE use
+      is the next dev round per the user's sequencing ("start building complexity from
+      simple patterns... so you have full visibility during development of the next
+      stages") — tail the tap while the model decides; attach with mcp_probe for
+      point-in-time board/observation reads.

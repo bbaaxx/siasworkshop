@@ -6,7 +6,7 @@ created: "2026-10-15"
 updated: "2026-10-16"
 owner: "coordinator"
 tags: ["research","llm","mcp","agents","architecture"]
-related_wiki: ["reference/local-llm-feasibility", "setup/agent-shared-ledger", "setup/agent-ux-feedback-2026-10-16", "setup/session-handoff-2026-10-16", "setup/session-handoff-2026-10-17", "reference/mcp-pattern-tree-design"]
+related_wiki: ["reference/local-llm-feasibility", "setup/agent-shared-ledger", "setup/agent-ux-feedback-2026-10-16", "setup/session-handoff-2026-10-16", "setup/session-handoff-2026-10-17", "reference/mcp-pattern-tree-design", "reference/minecraft-mcp-servers", "reference/decision-layer-jev-jeva"]
 priority: "medium"
 ---
 
