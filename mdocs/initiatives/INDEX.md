@@ -16,6 +16,7 @@
 - **Forge compatibility: 1.20.1 verification + 1.21.1 Forge build** (done) — forge-compatibility-1-20-1-verification-1-21-1-forge-build--2026-10-08.md — 2026-10-08 — [tooling, release, forge, backport]
 - **Research Minecraft x LLM integration landscape** (done) — llm-integration-research-2026-10-13--2026-10-13.md — 2026-10-13 — [research, llm, ai, capabilities]
 - **Local small LLM feasibility (Qwen3-class, 4-bit, M3 Pro)** (done) — local-llm-feasibility-2026-10-13--2026-10-13.md — 2026-10-13 — [research, llm, local-llm, qwen, apple-silicon, capabilities]
+- **MCP hot-plug debug access for live model↔mod observation** (proposed) — mcp-hotplug-debug-access--2026-10-17.md — 2026-10-17 — [mcp, agents, tooling, debug, observability]
 - **Research: dedicated MCP layer for model-stable agent decisions** (active) — mcp-model-behavior-research-2026-10-15--2026-10-15.md — 2026-10-15 — [research, llm, mcp, agents, architecture]
 - **Integrate mdocs into coordinator workflow** (done) — mdocs-coordinator-integration--2026-10-10.md — 2026-10-10 — [tooling, mdocs, agents]
 - **Research open-source mod ecosystem** (done) — mod-ecosystem-research--2026-10-07.md — 2026-10-07 — []

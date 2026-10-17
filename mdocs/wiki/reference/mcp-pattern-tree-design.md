@@ -4,7 +4,7 @@ title: "MCP pattern-tree design — descriptor format, session model, reference 
 category: "reference"
 created: "2026-10-16"
 updated: "2026-10-16"
-related_initiatives: ["mcp-model-behavior-research--2026-10-15"]
+related_initiatives: ["mcp-model-behavior-research--2026-10-15", "mcp-hotplug-debug-access--2026-10-17"]
 tags: ["mcp","llm","agents","architecture","design","pattern-tree"]
 lifecycle: "evolving"
 lifecycle: "evolving"
