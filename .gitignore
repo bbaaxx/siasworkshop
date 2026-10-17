@@ -45,3 +45,7 @@ node_modules/
 
 .env
 .tmp/
+
+### Python (sidecar) ###
+__pycache__/
+sidecar/metrics-*.jsonl

@@ -1,0 +1,131 @@
+[
+  {
+    "name": "clean_claim",
+    "modes": ["mcp-prompt"],
+    "content": "{\"tool\":\"claim\",\"args\":{\"task\":\"{{build_key}}\"}}",
+    "expect_tool": "claim",
+    "expect_decision": "ok",
+    "expect_exec": "exec_ok"
+  },
+  {
+    "name": "clean_claim_v1shape",
+    "modes": ["v1"],
+    "content": "{\"action\":\"claim\",\"args\":{\"task\":\"{{build_key}}\"}}",
+    "expect_tool": "claim",
+    "expect_decision": "ok",
+    "expect_exec": "exec_ok"
+  },
+  {
+    "name": "fenced_claim",
+    "modes": ["mcp-prompt"],
+    "content": "Sure! Here's my decision:\n```json\n{\"tool\":\"claim\",\"args\":{\"task\":\"{{build_key}}\"}}\n```",
+    "expect_tool": "claim",
+    "expect_decision": "ok",
+    "expect_exec": "exec_ok"
+  },
+  {
+    "name": "fenced_claim_v1shape",
+    "modes": ["v1"],
+    "content": "```json\n{\"action\":\"claim\",\"args\":{\"task\":\"{{build_key}}\"}}\n```",
+    "expect_tool": "claim",
+    "expect_decision": "ok",
+    "expect_exec": "exec_ok"
+  },
+  {
+    "name": "prose_wrapped_rest",
+    "modes": ["mcp-prompt"],
+    "content": "The board looks quiet, best to idle for now. {\"tool\":\"rest\",\"args\":{}}",
+    "expect_tool": "rest",
+    "expect_decision": "ok",
+    "expect_exec": "exec_ok"
+  },
+  {
+    "name": "prose_wrapped_rest_v1shape",
+    "modes": ["v1"],
+    "content": "The board looks quiet, best to idle for now. {\"action\":\"rest\",\"args\":{}}",
+    "expect_tool": "rest",
+    "expect_decision": "ok",
+    "expect_exec": "exec_ok"
+  },
+  {
+    "name": "v1_shape_in_mcp_mode",
+    "modes": ["mcp-prompt"],
+    "content": "{\"action\":\"claim\",\"args\":{\"task\":\"{{build_key}}\"}}",
+    "expect_decision": "malformed_json"
+  },
+  {
+    "name": "mcp_shape_in_v1_mode",
+    "modes": ["v1"],
+    "content": "{\"tool\":\"claim\",\"args\":{\"task\":\"{{build_key}}\"}}",
+    "expect_decision": "malformed_json"
+  },
+  {
+    "name": "unknown_tool",
+    "modes": ["mcp-prompt"],
+    "content": "{\"tool\":\"dig\",\"args\":{\"block\":\"stone\"}}",
+    "expect_decision": "unknown_tool"
+  },
+  {
+    "name": "unknown_tool_v1shape",
+    "modes": ["v1"],
+    "content": "{\"action\":\"dig\",\"args\":{\"block\":\"stone\"}}",
+    "expect_decision": "unknown_tool"
+  },
+  {
+    "name": "bad_args_missing_msg",
+    "modes": ["mcp-prompt"],
+    "content": "{\"tool\":\"say\",\"args\":{\"player\":\"Dev\"}}",
+    "expect_tool": "say",
+    "expect_decision": "bad_args"
+  },
+  {
+    "name": "bad_args_missing_msg_v1shape",
+    "modes": ["v1"],
+    "content": "{\"action\":\"say\",\"args\":{\"player\":\"Dev\"}}",
+    "expect_tool": "say",
+    "expect_decision": "bad_args"
+  },
+  {
+    "name": "unknown_task_key_exec_reject",
+    "modes": ["mcp-prompt"],
+    "content": "{\"tool\":\"claim\",\"args\":{\"task\":\"build:nonexistent:00\"}}",
+    "expect_tool": "claim",
+    "expect_decision": "ok",
+    "expect_exec": "exec_reject:unknown or claimed task key 'build:nonexistent:00'"
+  },
+  {
+    "name": "unknown_task_key_exec_reject_v1shape",
+    "modes": ["v1"],
+    "content": "{\"action\":\"claim\",\"args\":{\"task\":\"build:nonexistent:00\"}}",
+    "expect_tool": "claim",
+    "expect_decision": "ok",
+    "expect_exec": "exec_reject:unknown or claimed task key 'build:nonexistent:00'"
+  },
+  {
+    "name": "garbage_no_json",
+    "modes": ["v1", "mcp-prompt", "mcp-native"],
+    "content": "I cannot decide today, the moon is wrong.",
+    "expect_decision": "malformed_json"
+  },
+  {
+    "name": "native_say",
+    "modes": ["mcp-native"],
+    "tool_call": {"name": "say", "arguments": {"player": "{{player}}", "msg": "heading out"}},
+    "expect_tool": "say",
+    "expect_decision": "ok",
+    "expect_exec": "exec_ok"
+  },
+  {
+    "name": "native_bad_args",
+    "modes": ["mcp-native"],
+    "tool_call": {"name": "claim", "arguments": {"task": 42}},
+    "expect_tool": "claim",
+    "expect_decision": "bad_args"
+  },
+  {
+    "name": "native_text_instead_of_call",
+    "modes": ["mcp-native"],
+    "content": "I think I will just rest for this cycle.",
+    "expect_decision": "malformed_json"
+  }
+]

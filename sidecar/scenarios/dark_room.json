@@ -1,0 +1,13 @@
+{
+  "name": "dark_room",
+  "player_name": "Dev",
+  "observation": "[SELF] name=Workshop Agent pos=-3,64,10 hp=20/20 held=empty task=idle inv=2/27 slots: torchx24\n[PLAYERS] Dev@3.1m hp=20 food=20 held=siasworkshop:agent_inspector\n[NEARBY BLOCKS] total=15810 types=17 top: stonex8204, dirtx2980, grass_blockx1411, oak_planksx430, cobblestonex388 otherx2407 | poi: bedx0 chestx1(+1,+0,-2) crafting_tablex0 furnacex0 torchx0\n[NEARBY ENTITIES] agents=1 villagers=0 hostiles=0 others=1\n[ENVIRONMENT] dim=overworld biome=plains time=17800(night) weather=clear light=4\n[CAPABILITIES once working a task] move(x,z), follow(player), gather(block), chop(), mine(block), place(block), build(blueprint), deposit(chest), withdraw(chest), light(), use(item), say(player,msg), rest(), claim()",
+  "open_tasks": [
+    {
+      "key": "comfort:light:9a41f0c2-7d18-4a5e-b3f9-2c8e6d1f4a77",
+      "type": "COMFORT_LIGHT",
+      "detail": "roofed dark room near Dev at -5,64,8 (agent has torches)",
+      "claimable": true
+    }
+  ]
+}

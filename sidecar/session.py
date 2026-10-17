@@ -1,0 +1,165 @@
+"""Decision session driver (S0): one decision through the mock mod, in one of three modes.
+
+- v1         : LlmPrompts replica, {"action","args"} contract, no tool catalog (baseline)
+- mcp-prompt : catalog rendered into the prompt, {"tool","args"} contract (local-model path)
+- mcp-native : catalog sent as native function-calling tools (cloud-model path)
+
+All modes observe through the same MCP pipe, validate against the same catalog, and
+execute through the same tools/call boundary — so measured differences attribute to the
+model-facing surface, not the plumbing.
+"""
+from __future__ import annotations
+
+import json
+import time
+from dataclasses import dataclass, field, asdict
+
+import catalog
+from catalog import by_wire, check_args, first_json_object, render_native, render_prompt, render_v1_user, V1_SYSTEM
+from mcp import McpClient
+
+
+@dataclass
+class Decision:
+    mode: str
+    tool: str | None = None
+    args: dict | None = None
+    decision_outcome: str = "ok"       # ok | malformed_json | unknown_tool | bad_args | model_error:<x>
+    exec_outcome: str | None = None    # exec_ok | exec_reject:<reason> | None (not executed)
+    model_error: str | None = None
+    model_latency_ms: int = 0
+    total_latency_ms: int = 0
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    raw_preview: str | None = None
+
+    def to_row(self, model: str, scenario: str, iteration: int) -> dict:
+        row = asdict(self)
+        row.update({"model": model, "scenario": scenario, "iteration": iteration})
+        return row
+
+
+def _preview(text: str | None, limit: int = 200) -> str | None:
+    if text is None:
+        return None
+    flat = " ".join(text.split())
+    return flat if len(flat) <= limit else flat[:limit] + "..."
+
+
+def _board_lines(board: dict) -> list[str]:
+    return list(board.get("content", {}).get("open_tasks") or [])
+
+
+def run_decision(mode: str, model, model_tag: str, client: McpClient,
+                 profile: dict) -> Decision:
+    started = time.monotonic()
+    obs = client.call("observe_self")
+    board = client.call("observe_board")
+    observation = obs["content"].get("observation", "") if obs["ok"] else ""
+    open_lines = _board_lines(board)
+    open_keys = [line.split(" — ")[0] for line in open_lines]
+
+    temperature = profile.get("temperature", 0.3)
+    max_tokens = profile.get("max_tokens", 1024)
+    decision = Decision(mode=mode)
+
+    if mode == "v1":
+        messages = [
+            {"role": "system", "content": V1_SYSTEM},
+            {"role": "user", "content": render_v1_user(observation, open_lines)},
+        ]
+        reply = model.chat(model_tag, messages, temperature=temperature, max_tokens=max_tokens)
+        decision.model_latency_ms = reply.latency_ms
+        decision.prompt_tokens, decision.completion_tokens = reply.prompt_tokens, reply.completion_tokens
+        if not reply.ok:
+            decision.decision_outcome = "model_error:" + (reply.error or "unknown")
+            decision.raw_preview = _preview(getattr(reply, "content", None))
+            return _finish(decision, started)
+        candidate = first_json_object(reply.content or "")
+        decision.raw_preview = _preview(reply.content)
+        if candidate is None:
+            decision.decision_outcome = "malformed_json"
+            return _finish(decision, started)
+        action = candidate.get("action")
+        args = candidate.get("args") if isinstance(candidate.get("args"), dict) else {}
+        if not isinstance(action, str):
+            decision.decision_outcome = "malformed_json"
+            return _finish(decision, started)
+        decision.tool, decision.args = action, args
+
+    elif mode == "mcp-prompt":
+        messages = [
+            {"role": "system", "content": render_prompt()},
+            {"role": "user", "content": "OBSERVATION:\n" + observation
+             + "\n\nOPEN TASKS:\n" + ("\n".join("- " + l for l in open_lines) or "none")
+             + '\n\nDecide: reply with exactly one JSON object {"tool":"<id>","args":{...}}.'},
+        ]
+        reply = model.chat(model_tag, messages, temperature=temperature, max_tokens=max_tokens)
+        decision.model_latency_ms = reply.latency_ms
+        decision.prompt_tokens, decision.completion_tokens = reply.prompt_tokens, reply.completion_tokens
+        if not reply.ok:
+            decision.decision_outcome = "model_error:" + (reply.error or "unknown")
+            return _finish(decision, started)
+        candidate = first_json_object(reply.content or "")
+        decision.raw_preview = _preview(reply.content)
+        if candidate is None or not isinstance(candidate.get("tool"), str):
+            decision.decision_outcome = "malformed_json"
+            return _finish(decision, started)
+        decision.tool = candidate["tool"]
+        decision.args = candidate.get("args") if isinstance(candidate.get("args"), dict) else {}
+
+    elif mode == "mcp-native":
+        # Parity: only the decision effect set is offered natively; observation is
+        # pre-injected above (multi-step observe-via-tools is S2+ behavior — in the
+        # cloud test the model spontaneously called observe_board 2/3 times when it
+        # was offered, which is good instinct but not a decision-shaped reply).
+        decision_tools = [t for t in catalog.S0_TOOLS if t.kind == "effect"]
+        messages = [
+            {"role": "system", "content":
+                "You control a Minecraft villager-agent. Observe the situation, then call exactly "
+                "one tool to decide: claim a task, rest, or say something."},
+            {"role": "user", "content": "OBSERVATION:\n" + observation
+             + "\n\nOPEN TASKS:\n" + ("\n".join("- " + l for l in open_lines) or "none")},
+        ]
+        reply = model.chat(model_tag, messages, tools=render_native(decision_tools),
+                           temperature=temperature, max_tokens=max_tokens)
+        decision.model_latency_ms = reply.latency_ms
+        decision.prompt_tokens, decision.completion_tokens = reply.prompt_tokens, reply.completion_tokens
+        if not reply.ok:
+            decision.decision_outcome = "model_error:" + (reply.error or "unknown")
+            return _finish(decision, started)
+        if not reply.tool_calls:
+            decision.decision_outcome = "malformed_json"
+            decision.raw_preview = _preview(reply.content)
+            return _finish(decision, started)
+        call = reply.tool_calls[0]
+        decision.tool, decision.args = call["name"], call["args"]
+
+    else:
+        decision.decision_outcome = "model_error:unknown_mode:" + mode
+        return _finish(decision, started)
+
+    # --- catalog validation (the D7 boundary, same for every mode) -------------
+    tool = by_wire(decision.tool) if decision.tool else None
+    if tool is None:
+        decision.decision_outcome = "unknown_tool"
+        return _finish(decision, started)
+    arg_err = check_args(tool.inputs, decision.args if decision.args is not None else {})
+    if arg_err:
+        decision.decision_outcome = "bad_args"
+        decision.model_error = arg_err
+        return _finish(decision, started)
+
+    # --- execute through the mod boundary ---------------------------------------
+    result = client.call(tool.wire, decision.args or {})
+    if result["ok"]:
+        decision.exec_outcome = "exec_ok"
+    else:
+        reject = result["content"].get("reject") if isinstance(result["content"], dict) else str(result["content"])
+        decision.exec_outcome = "exec_reject:" + str(reject)
+    return _finish(decision, started)
+
+
+def _finish(decision: Decision, started: float) -> Decision:
+    decision.total_latency_ms = int((time.monotonic() - started) * 1000)
+    return decision
