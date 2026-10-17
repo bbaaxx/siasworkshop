@@ -1,12 +1,12 @@
 ---
 id: "mcp-model-behavior-research--2026-10-15"
 title: "Research: dedicated MCP layer for model-stable agent decisions"
-status: "proposed"
+status: "active"
 created: "2026-10-15"
 updated: "2026-10-16"
-owner: ""
+owner: "coordinator"
 tags: ["research","llm","mcp","agents","architecture"]
-related_wiki: ["reference/local-llm-feasibility", "setup/agent-shared-ledger", "setup/agent-ux-feedback-2026-10-16", "setup/session-handoff-2026-10-16"]
+related_wiki: ["reference/local-llm-feasibility", "setup/agent-shared-ledger", "setup/agent-ux-feedback-2026-10-16", "setup/session-handoff-2026-10-16", "reference/mcp-pattern-tree-design"]
 priority: "medium"
 ---
 
@@ -99,19 +99,24 @@ ad hoc inside `LlmClient`:
 - **Status quo (in-mod normalization)**: the v1 fallback path stays for offline, but
   is not the integration strategy.
 
-## Plan (parked until the state-visibility feature lands — see ledger)
+## Plan
 
 - [x] Finish the cloud-model test round (SEQ-014: trailing-slash 404, seconds-fast
       decisions, shelter ping-pong) — requirements input collected
 - [x] Collect + prioritize the user's playtest feedback batch (SEQ-015)
 - [x] Prerequisite feature (separate initiative): agent state visibility — nameplate
       states + working say() + config-gated DEBUG activity log (DONE, f1e1c71)
-- [ ] Feature-flag wiring: MCP client path default-OFF, opt-in via config (no Python
-      dependency for CurseForge installs)
-- [ ] Design the pattern-tree descriptor format (category → patterns → effects),
+- [x] Design the pattern-tree descriptor format (category → patterns → effects),
       building-workflow example as the reference walk
-- [ ] Spike: minimal sidecar exposing the 3 decision tools to one local model and
+      → `reference/mcp-pattern-tree-design` (2026-10-16)
+- [x] Spike: minimal sidecar exposing the 3 decision tools to one local model and
       one cloud model; measure decision latency + malformed-decision rate vs v1
+      → S0 done under `sidecar/` (2026-10-16, results SEQ-020): replay 20/20,
+      cloud 9/9 ok, local v1 failed while both MCP modes passed
+- [ ] Feature-flag wiring: MCP client path default-OFF, opt-in via config (no Python
+      dependency for CurseForge installs) — S1, with in-mod gametest
+- [ ] S2: first real pattern tree against the building walk (three patterns against
+      real mod machinery, same scenario as a v1 build task)
 - [ ] Scenario corpus + assertions for question 4
 - [ ] Recommendation → `reference/` wiki; if adopted, plan the LlmClient→MCP-client
       migration (config: sidecar address instead of endpoint/model/apiKey)
@@ -130,3 +135,17 @@ ad hoc inside `LlmClient`:
       executes leaf effects); in-game agent state visibility is the agreed
       pre-sidecar feature. Research questions refocused; low-level mapped tools
       recorded as rejected.
+- [2026-10-16] Resumed per handoff session-handoff-2026-10-16. Pattern-tree
+      descriptor design written: wiki reference/mcp-pattern-tree-design (roles+stdio
+      transport, 4 tool kinds, descriptor format, pattern-card expansion,
+      session-state split, safety, flag, prompt economy, building-walk reference
+      trace, S0-S2 spike plan, open questions).
+- [2026-10-16] S0 spike done under `sidecar/` (stdlib-only Python: JSON-RPC/MCP
+      client, mock mod in the server role, 3-mode A/B runner, asserted replay
+      self-test 20/20). Cloud (deepseek-pro, n=3/mode): 9/9 ok, 0 malformed —
+      v1 1.1s / mcp-prompt 1.2s / mcp-native 1.4s, 21/48/68 completion tokens.
+      Local (bonsai-27b, n=1/mode): v1 FAILED (120s timeout; previous run
+      empty_content:length at 1024 — 2/2 budget burnouts on the v1 prompt) while
+      BOTH MCP modes succeeded (~39s, ~350-390 tokens). LM Studio accepted native
+      tool-calling for bonsai. Details + findings: ledger SEQ-020; sidecar/README.md;
+      metrics in sidecar/metrics-*.jsonl.
