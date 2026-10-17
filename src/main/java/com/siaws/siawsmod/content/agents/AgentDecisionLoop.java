@@ -445,6 +445,22 @@ public final class AgentDecisionLoop {
     }
 
     /**
+     * True while {@code key} is in this agent's release cooldown (see {@link #releaseForAgent}).
+     * Public: shared by the MCP tool surface so a cooled-down task is neither listed nor
+     * claimable for the agent that just released it — otherwise the model burns a decision
+     * lap re-picking it every cycle.
+     */
+    public static boolean inReleaseCooldown(UUID agentUuid, String key, long now) {
+        Map<String, Long> cooldowns = releaseCooldowns.get(agentUuid);
+        if (cooldowns == null) {
+            return false;
+        }
+        cooldowns.entrySet().removeIf(entry -> entry.getValue() <= now);
+        Long until = cooldowns.get(key);
+        return until != null && until > now;
+    }
+
+    /**
      * The board tasks an agent may see at a decision point: OPEN, excluding COMFORT_SHELTER
      * (no executor yet — claiming it ping-pongs) and comfort deficits whose player left.
      * Public: shared by the MCP tool surface ({@code McpTools}).

@@ -96,7 +96,7 @@ def decide(peer: ModPeer, model, model_tag: str, args: dict, mode: str,
            temperature: float, max_tokens: int) -> dict:
     agent = args.get("agent", "")
     obs = call_mod_tool(peer, "observe_self", {"agent": agent})
-    board = call_mod_tool(peer, "observe_board", {})
+    board = call_mod_tool(peer, "observe_board", {"agent": agent})
     observation = obs.get("observation", "")
     open_lines = list(board.get("open_tasks") or [])
     open_keys = [line.split(" — ")[0] for line in open_lines]

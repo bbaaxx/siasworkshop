@@ -115,7 +115,8 @@ S0_TOOLS: list[Tool] = [
                  "properties": {"agent": {"type": "string"}}}),
     Tool(id="observe.board", kind="observe",
          description="Read-only: the shared task board — open tasks with their exact claim keys.",
-         inputs={"type": "object", "properties": {}}),
+         inputs={"type": "object",
+                 "properties": {"agent": {"type": "string", "description": "optional viewer agent; hides its cooling-down tasks"}}}),
     Tool(id="claim", kind="effect",
          description="Start work on an OPEN TASK from the board. Once claimed, the agent's hands "
                      "(walk, place, light, build) run automatically in the mod.",

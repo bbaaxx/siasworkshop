@@ -31,8 +31,9 @@ public final class McpTools {
     private static final String[][] TOOLS = {
             {"observe_self", "observe", "Read-only: this agent's compact situation snapshot.",
                     "agent"},
-            {"observe_board", "observe", "Read-only: the shared task board — open tasks with exact claim keys.",
-                    null},
+            {"observe_board", "observe", "Read-only: the shared task board — open tasks with exact claim keys. "
+                    + "Pass agent to hide that agent's cooling-down (recently released) tasks.",
+                    "agent?"},
             {"claim", "effect", "Start work on an OPEN TASK; hands (walk, place, light, build) then run automatically.",
                     "agent, task?"},
             {"rest", "effect", "Deliberately idle this cycle.", "agent"},
@@ -71,7 +72,7 @@ public final class McpTools {
     public static JsonObject dispatch(MinecraftServer server, String name, JsonObject args) {
         return switch (name) {
             case "observe_self" -> observeSelf(server, args);
-            case "observe_board" -> observeBoard(server);
+            case "observe_board" -> observeBoard(server, args);
             case "claim" -> claim(server, args);
             case "rest" -> rest(server, args);
             case "say" -> say(server, args);
@@ -91,12 +92,21 @@ public final class McpTools {
         return result;
     }
 
-    private static JsonObject observeBoard(MinecraftServer server) {
+    private static JsonObject observeBoard(MinecraftServer server, JsonObject args) {
         JsonObject result = new JsonObject();
         JsonArray lines = new JsonArray();
+        // Optional agent arg: hides tasks that agent recently released (cooldown), so the
+        // model stops re-picking a task the executor just gave up on (live S1 spin).
+        WorkshopAgentEntity viewer = args.has("agent") && args.get("agent").isJsonPrimitive()
+                ? agentOf(server, args) : null;
         for (ServerLevel level : server.getAllLevels()) {
             TaskBoard board = AgentWorldData.board(level);
+            long now = level.getGameTime();
             for (BoardTask task : AgentDecisionLoop.openTasks(level, board)) {
+                if (viewer != null
+                        && AgentDecisionLoop.inReleaseCooldown(viewer.getUUID(), task.key(), now)) {
+                    continue;
+                }
                 lines.add(task.key() + " — " + task.detail());
             }
         }
@@ -110,11 +120,19 @@ public final class McpTools {
             return reject("unknown agent");
         }
         ServerLevel level = (ServerLevel) agent.level();
+        long now = level.getGameTime();
         TaskBoard board = AgentWorldData.board(level);
-        List<BoardTask> open = AgentDecisionLoop.openTasks(level, board);
+        // cooled-down tasks (recently released by THIS agent) are not claimable — the same
+        // spin guard as decide()'s open list and observe_board's per-agent listing
+        List<BoardTask> open = AgentDecisionLoop.openTasks(level, board).stream()
+                .filter(task -> !AgentDecisionLoop.inReleaseCooldown(agent.getUUID(), task.key(), now))
+                .toList();
         BoardTask target = null;
         if (args.has("task") && args.get("task").isJsonPrimitive()) {
             String key = args.get("task").getAsString();
+            if (AgentDecisionLoop.inReleaseCooldown(agent.getUUID(), key, now)) {
+                return reject("task '" + key + "' is cooling down after a recent release");
+            }
             target = open.stream().filter(task -> task.key().equals(key)).findFirst().orElse(null);
             if (target == null) {
                 return reject("unknown or claimed task key '" + key + "'");
@@ -125,7 +143,6 @@ public final class McpTools {
         if (target == null) {
             return reject("no open tasks to claim");
         }
-        long now = level.getGameTime();
         boolean claimed = board.claim(target.id(), agent.getUUID(),
                 Config.AGENTS_TASK_LEASE_TICKS.get(), now);
         if (!claimed) {
