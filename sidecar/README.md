@@ -90,6 +90,10 @@ Metrics append to JSONL (`--out`, default `metrics-<ts>.jsonl`); a summary table
   execute; `Decision` outcome taxonomy (`malformed_json`/`unknown_tool`/`bad_args`/
   `model_error:*`, `exec_ok`/`exec_reject:*`).
 - `run_spike.py` — A/B runner, replay self-test with asserted expectations, summary.
+- `sidecar.py` — the real child-role bridge the mod spawns (S1); `--replay` for offline
+  runs, `--tap <file>` for the P1 wire tap (see below).
+- `test_sidecar_bridge.py` / `test_tap.py` — topology self-tests (bridge exchange;
+  `--tap` capture), no Java required.
 - `scenarios/` — `stone_bricks_chest` (build task + comfort task), `dark_room`
   (night light task).
 - `replay/script.json` — scripted raw model replies (valid, fenced, prose-wrapped,
@@ -117,6 +121,26 @@ python3 /path/to/sidecar/sidecar.py --endpoint http://127.0.0.1:1234/v1 --model 
 Java gametests (`AgentsMcpGameTest`) cover the mod side against an in-JVM fake peer:
 handshake + catalog serving, a full decide cycle claiming on the real board, structured
 rejects for malformed calls, and template fallback on a dead sidecar.
+
+## P1: the wire tap (`--tap`)
+
+`sidecar.py --tap <file>` appends every inbound/outbound protocol line to `<file>` as one
+JSON object per line — `{"ts": "<utc iso8601>", "dir": "in"|"out", "msg": {...}}` —
+timestamped, direction-tagged, and replayable (the same shape `replay/` scripts consume).
+This is the answer to "what did the model actually see" from the S1 live tests: tail the
+file during a run instead of reconstructing the wire from logs afterwards.
+
+```bash
+# add --tap to agents.mcp.command (absolute path — see the encoded traps), then:
+tail -f run/wire.jsonl                 # live: every request/response as it happens
+# or watch just the decisions:
+tail -f run/wire.jsonl | grep '"dir": "in"' | grep tools/call
+```
+
+Stdout stays protocol-pure (only JSON-RPC lines ever reach it — verified by inspection;
+the tap only writes to its file, and a tap I/O error never breaks the wire). Wire
+corruption shows up as `"unparsed"` rows instead of `msg`. Test: `python3 test_tap.py`
+(runs the bridge topology with `--tap` and asserts both directions are captured).
 
 ## Encoded traps (from the ledger — do not relearn)
 

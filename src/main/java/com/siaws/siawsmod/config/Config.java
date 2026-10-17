@@ -128,6 +128,14 @@ public class Config {
                     "reasoning models can take minutes). On timeout the agent falls back to templates.")
             .defineInRange("agents.mcp.decisionTimeoutSeconds", 180, 10, 600);
 
+    public static final ModConfigSpec.IntValue AGENTS_MCP_DEBUG_PORT = BUILDER
+            .comment("Hot-plug debug access (see reference/mcp-pattern-tree-design, debug channel): when > 0",
+                    "AND agents.mcp.enabled is on, the mod listens on 127.0.0.1:<port> for MCP clients speaking",
+                    "the same newline-JSON-RPC, serving a READ-ONLY catalog (observe_self/observe_board) over the",
+                    "real board state. 0 = off (default). Localhost-only, dev-only; CurseForge installs never",
+                    "open this listener. Write tools (claim/rest/say) are never exposed on this transport.")
+            .defineInRange("agents.mcp.debugPort", 0, 0, 65535);
+
     public static final ModConfigSpec.IntValue AGENTS_DECISION_INTERVAL_SECONDS = BUILDER
             .comment("How often idle agents run a decision pass (observe, retrieve, pick), in",
                     "seconds. Executing an already-claimed task runs every tick regardless.")

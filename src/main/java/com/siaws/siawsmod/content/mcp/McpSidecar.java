@@ -102,6 +102,9 @@ public final class McpSidecar {
             SiasWorkshop.LOGGER.warn("[McpSidecar] failed to start sidecar '{}': {}; decisions fall back to templates",
                     command, e.toString());
         }
+        // hot-plug debug listener rides the same lifecycle: it can only exist while the MCP
+        // path is enabled, and a bind failure must never take the sidecar down with it
+        McpDebugServer.startFor(server);
     }
 
     private static McpSidecar spawn(String command, MinecraftServer server) {
@@ -129,6 +132,7 @@ public final class McpSidecar {
     }
 
     public static synchronized void stop() {
+        McpDebugServer.stop();
         if (instance != null) {
             instance.close();
             instance = null;

@@ -42,9 +42,21 @@ public final class McpTools {
 
     /** tools/list response for the catalog the sidecar sees. */
     public static JsonObject listDescriptor() {
+        return listDescriptor(false);
+    }
+
+    /**
+     * tools/list response; with {@code readOnly} only the "observe" category is served —
+     * the debug transport (reference/mcp-pattern-tree-design, debug channel) exposes this
+     * filtered catalog so write tools never even appear on that surface.
+     */
+    public static JsonObject listDescriptor(boolean readOnly) {
         JsonObject result = new JsonObject();
         JsonArray tools = new JsonArray();
         for (String[] tool : TOOLS) {
+            if (readOnly && !"observe".equals(tool[1])) {
+                continue;
+            }
             JsonObject descriptor = new JsonObject();
             descriptor.addProperty("name", tool[0]);
             descriptor.addProperty("description", tool[2] + (tool[3] != null ? " Args: " + tool[3] : ""));
@@ -63,6 +75,16 @@ public final class McpTools {
         }
         result.add("tools", tools);
         return result;
+    }
+
+    /** Debug-transport guard: only these tools may execute on the read-only surface. */
+    public static boolean isReadOnly(String name) {
+        for (String[] tool : TOOLS) {
+            if (tool[0].equals(name)) {
+                return "observe".equals(tool[1]);
+            }
+        }
+        return false;
     }
 
     /**

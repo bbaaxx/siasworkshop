@@ -17,6 +17,7 @@ Stdlib only. Never prints the API key.
 from __future__ import annotations
 
 import argparse
+import datetime
 import itertools
 import json
 import sys
@@ -26,16 +27,44 @@ from catalog import (S0_TOOLS, by_wire, check_args, first_json_object, render_na
 from model import FakeModel, OpenAiChat, profile_for
 
 
+class WireTap:
+    """Passive wire tap: append every inbound/outbound protocol line to a file as one JSON
+    object per line ({"ts", "dir", "msg"}), so a live session can be tailed in real time and
+    replayed offline. Stdout stays protocol-pure — the tap only ever writes to its file."""
+
+    def __init__(self, path: str):
+        # append: a restarted sidecar continues the same observation instead of truncating it
+        self._fh = open(path, "a", encoding="utf-8", buffering=1)
+
+    def record(self, direction: str, msg: dict):
+        self._write({"ts": datetime.datetime.now(datetime.timezone.utc).isoformat(
+            timespec="milliseconds").replace("+00:00", "Z"), "dir": direction, "msg": msg})
+
+    def record_unparsed(self, direction: str, raw: str):
+        self._write({"ts": datetime.datetime.now(datetime.timezone.utc).isoformat(
+            timespec="milliseconds").replace("+00:00", "Z"), "dir": direction,
+            "unparsed": raw[:4096]})
+
+    def _write(self, row: dict):
+        try:
+            self._fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+        except OSError:
+            pass  # a full disk must never break the wire
+
+
 class ModPeer:
     """JSON-RPC peer on our own stdio: send requests on stdout, read traffic on stdin."""
 
-    def __init__(self):
+    def __init__(self, tap: WireTap | None = None):
         self._reader = sys.stdin.buffer
         self._writer = sys.stdout.buffer
         self._ids = itertools.count(1)
         self._pending: dict[int, dict] = {}
+        self._tap = tap
 
     def _send(self, msg: dict):
+        if self._tap is not None:
+            self._tap.record("out", msg)
         self._writer.write(json.dumps(msg).encode() + b"\n")
         self._writer.flush()
 
@@ -72,9 +101,14 @@ class ModPeer:
         if not line:
             return {}
         try:
-            return json.loads(line.decode())
+            msg = json.loads(line.decode())
         except ValueError:
+            if self._tap is not None:
+                self._tap.record_unparsed("in", line.decode(errors="replace"))
             return {}
+        if self._tap is not None:
+            self._tap.record("in", msg)
+        return msg
 
 
 def call_mod_tool(peer: ModPeer, name: str, args: dict) -> dict:
@@ -196,6 +230,9 @@ def main() -> int:
     ap.add_argument("--temperature", type=float, default=None)
     ap.add_argument("--max-tokens", type=int, default=None)
     ap.add_argument("--replay", help="scripted replies JSON (offline tests; no network)")
+    ap.add_argument("--tap", metavar="FILE",
+                    help="wire tap: append every inbound/outbound protocol line to FILE as"
+                         " timestamped JSON (tail -f for live observation; replayable offline)")
     args = ap.parse_args()
 
     profile = profile_for(args.model)
@@ -214,7 +251,14 @@ def main() -> int:
         model = OpenAiChat(args.endpoint, api_key, timeout_seconds=180)
         model_tag = args.model
 
-    serve(ModPeer(), model, model_tag, mode, temperature, max_tokens)
+    tap = None
+    if args.tap:
+        try:
+            tap = WireTap(args.tap)
+        except OSError as e:
+            print(f"warning: --tap {args.tap}: {e}; continuing untapped", file=sys.stderr)
+
+    serve(ModPeer(tap), model, model_tag, mode, temperature, max_tokens)
     return 0
 
 
