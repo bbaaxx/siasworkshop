@@ -76,7 +76,9 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
  */
 public final class AgentDecisionLoop {
     /** After this many cycles without meaningful movement, a claimed agent gives up (releases). */
-    private static final int STUCK_CYCLES = 4;
+    private static final int STUCK_CYCLES = 40;
+    /** Executor releases suppress re-claims of the same task key for this long (game ticks). */
+    private static final int RELEASE_COOLDOWN_TICKS = 20 * 60 * 5;
     /** Execution proceeds when the agent is within this distance of its target. */
     private static final double ARRIVAL_DISTANCE = 2.0;
 
@@ -88,6 +90,7 @@ public final class AgentDecisionLoop {
     private static final Map<UUID, List<String>> pendingCitations = new HashMap<>();
     private static final Map<UUID, int[]> lastPositions = new HashMap<>();
     private static final Map<UUID, Integer> stuckCycles = new HashMap<>();
+    private static final Map<UUID, Map<String, Long>> releaseCooldowns = new HashMap<>();
 
     private AgentDecisionLoop() {}
 
@@ -172,13 +175,19 @@ public final class AgentDecisionLoop {
 
     private static void decide(ServerLevel level, TaskBoard board, AgentDecisionPool pool, WorkshopAgentEntity agent,
             long now, int leaseTicks, int poolMaxEntries, Predicate<String> claimableKeyFilter) {
-        List<BoardTask> open = openTasks(level, board).stream()
+        List<BoardTask> open = new ArrayList<>(openTasks(level, board).stream()
                 .filter(task -> claimableKeyFilter.test(task.key()))
-                // COMFORT_SHELTER has no executor in v1: the LLM (correctly!) judges it
-                // claimable at night, then the executor releases it — a claim ping-pong.
-                // Hidden like the fallback path (highestPriority) until shelter executes.
-                .filter(task -> task.type() != BoardTask.Type.COMFORT_SHELTER)
-                .toList();
+                .toList());
+        // A task this agent released not long ago (unroutable anchor, nothing to work with)
+        // must not be instantly re-claimed: the live S1 run showed the model re-picking the
+        // same unroutable anchor every decision cycle and burning a model call per lap.
+        Map<String, Long> cooldowns = releaseCooldowns.get(agent.getUUID());
+        if (cooldowns != null) {
+            cooldowns.entrySet().removeIf(entry -> entry.getValue() <= now);
+            if (!cooldowns.isEmpty()) {
+                open.removeIf(task -> cooldowns.containsKey(task.key()));
+            }
+        }
         if (open.isEmpty()) {
             return;
         }
@@ -285,6 +294,7 @@ public final class AgentDecisionLoop {
         pendingCitations.clear();
         lastPositions.clear();
         stuckCycles.clear();
+        releaseCooldowns.clear();
         ticksUntilRun = 0;
     }
 
@@ -309,8 +319,26 @@ public final class AgentDecisionLoop {
             return;
         }
         JsonObject payload = mcpPayload(result.json());
+        if (payload.has("reject")) {
+            // the sidecar's tool execution was rejected (claim raced, bad args, hidden task);
+            // the reason used to be swallowed ("unknown" decision), costing debug rounds
+            SiasWorkshop.LOGGER.warn("[AgentDecisionLoop] agent {} MCP decision rejected ({}), falling back to templates",
+                    agent.getUUID(), payload.get("reject").getAsString());
+            AgentActivity.fallback(level, agent, "mcp_reject");
+            claimByPriority(level, board, agent, open, now, leaseTicks);
+            return;
+        }
         String decision = payload.has("decision") ? payload.get("decision").getAsString() : "unknown";
         String detail = payload.has("detail") ? payload.get("detail").getAsString() : "";
+        if ("error".equals(decision)) {
+            // model/sidecar error (bad args, model failure) — collapse like an unusable
+            // direct-LLM reply instead of leaving the agent idle for a cycle
+            SiasWorkshop.LOGGER.warn("[AgentDecisionLoop] agent {} MCP decision errored ({}), falling back to templates",
+                    agent.getUUID(), detail);
+            AgentActivity.fallback(level, agent, "mcp_error");
+            claimByPriority(level, board, agent, open, now, leaseTicks);
+            return;
+        }
         SiasWorkshop.LOGGER.info("[AgentDecisionLoop] agent {} decided via MCP sidecar: {} {}",
                 agent.getUUID(), decision, detail);
         AgentActivity.decision(level, agent, "mcp:" + decision, detail);
@@ -403,6 +431,20 @@ public final class AgentDecisionLoop {
     }
 
     /**
+     * Executor-side release with a re-claim cooldown ({@link #RELEASE_COOLDOWN_TICKS}): a task
+     * the agent could make no progress on (unroutable anchor, no materials to hand) must not be
+     * instantly re-claimed next decision cycle — the live S1 run showed the model re-picking
+     * the same unroutable anchor every cycle and burning a model call per lap. Cooldowns are
+     * per-agent and checked lazily in {@link #decide}.
+     */
+    private static void releaseForAgent(WorkshopAgentEntity agent, TaskBoard board, BoardTask task, long now) {
+        board.release(task.id(), agent.getUUID(), now);
+        agent.setCurrentTaskLabel("");
+        releaseCooldowns.computeIfAbsent(agent.getUUID(), k -> new HashMap<>())
+                .put(task.key(), now + RELEASE_COOLDOWN_TICKS);
+    }
+
+    /**
      * The board tasks an agent may see at a decision point: OPEN, excluding COMFORT_SHELTER
      * (no executor yet — claiming it ping-pongs) and comfort deficits whose player left.
      * Public: shared by the MCP tool surface ({@code McpTools}).
@@ -413,9 +455,15 @@ public final class AgentDecisionLoop {
             if (task.status() != BoardTask.Status.OPEN) {
                 continue;
             }
+            // COMFORT_SHELTER has no executor in v1: claiming it ping-pongs (the live S1 run
+            // caught the model claiming it through the MCP surface and the executor instantly
+            // releasing). Excluded HERE — single source of truth for decide(), the MCP
+            // surface (McpTools), and the template fallback (highestPriority).
+            if (task.type() == BoardTask.Type.COMFORT_SHELTER) {
+                continue;
+            }
             // comfort deficits belong to a specific player — never claim one whose player is gone
-            if ((task.type() == BoardTask.Type.COMFORT_LIGHT || task.type() == BoardTask.Type.COMFORT_SHELTER)
-                    && !playerOnline(level, task.key())) {
+            if (task.type() == BoardTask.Type.COMFORT_LIGHT && !playerOnline(level, task.key())) {
                 continue;
             }
             open.add(task);
@@ -461,8 +509,7 @@ public final class AgentDecisionLoop {
     private static boolean executeLight(ServerLevel level, TaskBoard board, WorkshopAgentEntity agent, BoardTask task) {
         ServerPlayer player = level.getServer().getPlayerList().getPlayer(playerUuidOf(task.key()));
         if (player == null) {
-            board.release(task.id(), agent.getUUID(), level.getGameTime());
-            agent.setCurrentTaskLabel("");
+            releaseForAgent(agent, board, task, level.getGameTime());
             return false;
         }
         BlockPos dark = nearestDarkSpot(level, player.blockPosition(), Config.AGENTS_LIGHT_SCAN_RADIUS.get(),
@@ -474,8 +521,7 @@ public final class AgentDecisionLoop {
             AgentActivity.working(agent, task, "heading there");
             navigate(agent, dark);
             if (isStuck(agent)) {
-                board.release(task.id(), agent.getUUID(), level.getGameTime());
-                agent.setCurrentTaskLabel("");
+                releaseForAgent(agent, board, task, level.getGameTime());
                 clearStuck(agent);
                 return false;
             }
@@ -483,8 +529,7 @@ public final class AgentDecisionLoop {
         }
         if (!hasItem(agent, Items.TORCH)) {
             // nothing attempted — release, don't fail
-            board.release(task.id(), agent.getUUID(), level.getGameTime());
-            agent.setCurrentTaskLabel("");
+            releaseForAgent(agent, board, task, level.getGameTime());
             return false;
         }
         BlockPos target = findTorchTarget(level, dark, player.blockPosition());
@@ -492,8 +537,7 @@ public final class AgentDecisionLoop {
             // No valid placement near the nearest spot (sealed cavity, unreachable edge):
             // holding the claim would deadlock the task forever, so release and let the
             // deficit re-raise — the world may change, or another agent may fare better.
-            board.release(task.id(), agent.getUUID(), level.getGameTime());
-            agent.setCurrentTaskLabel("");
+            releaseForAgent(agent, board, task, level.getGameTime());
             return false;
         }
         AgentActivity.working(agent, task, "placing");
@@ -521,8 +565,7 @@ public final class AgentDecisionLoop {
             AgentActivity.working(agent, task, "heading there");
             navigate(agent, job.anchor());
             if (isStuck(agent)) {
-                board.release(task.id(), agent.getUUID(), now);
-                agent.setCurrentTaskLabel("");
+                releaseForAgent(agent, board, task, now);
                 clearStuck(agent);
                 return false;
             }

@@ -93,7 +93,10 @@ public final class McpSidecar {
             return;
         }
         try {
-            instance = spawn(command, server);
+            McpSidecar started = spawn(command, server);
+            instance = started;
+            String pid = started.process == null ? "stream" : Long.toString(started.process.pid());
+            SiasWorkshop.LOGGER.info("[McpSidecar] sidecar started (pid {}): {}", pid, command);
         } catch (RuntimeException e) {
             instance = null;
             SiasWorkshop.LOGGER.warn("[McpSidecar] failed to start sidecar '{}': {}; decisions fall back to templates",

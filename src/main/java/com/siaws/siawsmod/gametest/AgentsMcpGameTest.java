@@ -33,6 +33,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 
 import net.neoforged.neoforge.gametest.GameTestHolder;
 
@@ -193,6 +194,60 @@ public final class AgentsMcpGameTest {
         helper.succeed();
     }
 
+    /**
+     * The S1 live run caught COMFORT_SHELTER leaking through openTasks() into observe_board
+     * and claim — the exclusion lived only in decide()'s private chain, so the MCP model saw
+     * the task, claimed it, and the executor instantly released it (ping-pong). The exclusion
+     * now lives in openTasks() itself: the board must not list the task and claim must reject
+     * it. The mock player keeps the shelter key's owner online so hiding can only be the
+     * shelter exclusion.
+     */
+    @GameTest(template = "empty")
+    public static void mcpShelterHiddenFromSurface(GameTestHelper helper) throws Exception {
+        ServerLevel level = helper.getLevel();
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        BlockPos playerPos = helper.absolutePos(new BlockPos(2, 1, 2));
+        player.moveTo(playerPos.getX() + 0.5, playerPos.getY(), playerPos.getZ() + 0.5, 0.0F, 0.0F);
+        WorkshopAgentEntity agent = spawnAgent(helper);
+        TaskBoard board = AgentWorldData.board(level);
+        String key = "comfort:shelter:" + player.getUUID();
+        board.raiseIfAbsent(key, BoardTask.Type.COMFORT_SHELTER, "shelter probe", level.getGameTime());
+
+        // the peer's uuid arg is the SHELTER KEY OWNER in this mode (the decide "agent" arg
+        // still carries the agent uuid, as the real sidecar does)
+        FakeSidecarPeer peer = new FakeSidecarPeer(FakeSidecarPeer.MODE_SHELTER_PROBE, player.getUUID());
+        McpSidecar sidecar = startSidecar(helper, peer);
+
+        JsonObject args = new JsonObject();
+        args.addProperty("agent", agent.getUUID().toString());
+        AtomicReference<CompletableFuture<McpSidecar.CallResult>> ref = new AtomicReference<>();
+        ref.set(sidecar.callTool("decide", args, 30));
+
+        helper.runAfterDelay(40, () -> {
+            try {
+                McpSidecar.CallResult result = ref.get().get(1, TimeUnit.SECONDS);
+                helper.assertTrue(result.usable(), "decide must complete usable: " + result.failure());
+                JsonObject payload = payloadOf(result.json());
+                helper.assertTrue("error".equals(payload.get("decision").getAsString()),
+                        "claiming a hidden shelter task must surface as an error, got: " + payload);
+                helper.assertTrue(String.valueOf(payload.get("detail")).contains("rejected"),
+                        "error detail must carry the mod's reject reason, got: " + payload);
+                helper.assertTrue(board.tasks().stream().anyMatch(task ->
+                        task.key().equals(key) && task.status() == BoardTask.Status.OPEN
+                                && task.claimantUuid() == null),
+                        "shelter task must stay OPEN and unclaimed: " + board.tasks());
+                helper.assertTrue(peer.failure == null, "peer failure: " + peer.failure);
+                board.clearIfOpen(key);
+                sidecar.close();
+                agent.discard();
+                level.getServer().getPlayerList().remove(player);
+                helper.succeed();
+            } catch (Exception e) {
+                helper.fail("mcpShelterHiddenFromSurface assertion crashed: " + e);
+            }
+        });
+    }
+
     // --- helpers --------------------------------------------------------------------
 
     private static McpSidecar startSidecar(GameTestHelper helper, FakeSidecarPeer peer) throws Exception {
@@ -237,6 +292,7 @@ public final class AgentsMcpGameTest {
         static final int MODE_DECIDE_CLAIM = 1;
         static final int MODE_REJECT_PROBES = 2;
         static final int MODE_DIE_AFTER_HANDSHAKE = 3;
+        static final int MODE_SHELTER_PROBE = 4;
 
         private final int mode;
         private final UUID agentUuid;
@@ -339,6 +395,10 @@ public final class AgentsMcpGameTest {
                 probes.countDown();
                 return;
             }
+            if (mode == MODE_SHELTER_PROBE) {
+                shelterProbe(id, args);
+                return;
+            }
             String agent = args.get("agent").getAsString();
             JsonObject selfArgs = new JsonObject();
             selfArgs.addProperty("agent", agent);
@@ -383,6 +443,27 @@ public final class AgentsMcpGameTest {
             }));
             expectReject(callModRaw("observe_self", args -> {
             }));
+        }
+
+        /** MODE_SHELTER_PROBE: the raised shelter task (key owned by the mode's uuid arg) must be
+         *  invisible on the board AND unclaimable by key; the test wants an error summary back. */
+        private void shelterProbe(int id, JsonObject args) throws Exception {
+            String agent = args.get("agent").getAsString();
+            JsonObject board = callMod("observe_board", new JsonObject());
+            JsonArray open = board.getAsJsonArray("open_tasks");
+            for (int i = 0; i < open.size(); i++) {
+                if (open.get(i).getAsString().startsWith("comfort:shelter:")) {
+                    throw new IllegalStateException("shelter task leaked onto the board: " + board);
+                }
+            }
+            JsonObject claimArgs = new JsonObject();
+            claimArgs.addProperty("agent", agent);
+            claimArgs.addProperty("task", "comfort:shelter:" + agentUuid);
+            JsonObject body = callModRaw("claim", claimArgs);
+            if (!body.has("reject")) {
+                throw new IllegalStateException("shelter claim must be rejected, got: " + body);
+            }
+            respondContent(id, summary("error", "rejected: " + body.get("reject").getAsString()));
         }
 
         private JsonObject callMod(String name, JsonObject args) throws Exception {
