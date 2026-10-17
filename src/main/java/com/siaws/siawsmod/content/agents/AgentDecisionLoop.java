@@ -52,10 +52,12 @@ import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 /**
- * The agent decision/execution loop (design pillars 3+4): idle agents pick ONE action — an
- * LLM-chosen action when {@code llm.enabled}, otherwise the built-in template fallback — then
- * claim a task-board task and execute it with vanilla-style steering. Java executes; the LLM
- * (if any) only decides, and only inside the validated {@link LlmActions} contract.
+ * The agent decision/execution loop (design pillars 3+4): idle agents pick ONE action —
+ * through the MCP sidecar when {@code agents.mcp.enabled} (takes precedence, needs nothing
+ * from llm.*), else an LLM-chosen action when {@code llm.enabled}, else the built-in template
+ * fallback — then claim a task-board task and execute it with vanilla-style steering. Java
+ * executes; the model (if any) only decides, through either the MCP tool surface or the
+ * validated {@link LlmActions} contract.
  *
  * <p>Executors (v1): COMFORT_LIGHT walks to the recomputed nearest dark spot and places one
  * torch per cycle from its own inventory; BUILD walks to the anchor, withdraws palette items
@@ -184,29 +186,33 @@ public final class AgentDecisionLoop {
                 Config.AGENTS_POOL_TRUST_THRESHOLD.get(), now);
         rememberCitations(agent, retrieved);
 
-        if (!Config.LLM_ENABLED.get()) {
-            claimByPriority(level, board, agent, open, now, leaseTicks);
-            return;
-        }
         // MCP sidecar path takes precedence over the direct LLM path when enabled and alive:
         // the sidecar hosts the model session and executes the decision through McpTools.
-        if (Config.AGENTS_MCP_ENABLED.get()) {
-            McpSidecar sidecar = McpSidecar.current();
-            if (sidecar != null) {
-                if (!inFlightRequests.add(agent.getUUID())) {
-                    return; // one request in flight per agent
-                }
-                AgentActivity.deciding(agent);
-                AgentActivity.dispatched(level, agent, open.size());
-                JsonObject mcpArgs = new JsonObject();
-                mcpArgs.addProperty("agent", agent.getUUID().toString());
-                sidecar.callTool("decide", mcpArgs, Config.AGENTS_MCP_DECISION_TIMEOUT_SECONDS.get())
-                        .thenAccept(result -> level.getServer().execute(
-                                () -> handleMcpResult(level, agent, board, open, leaseTicks, result)));
-                return;
+        // Routed BEFORE the llm.enabled gate on purpose: agents.mcp.enabled alone must
+        // activate the MCP path; on sidecar death the loop falls through to the routes below.
+        boolean mcpEnabled = Config.AGENTS_MCP_ENABLED.get();
+        McpSidecar sidecar = mcpEnabled ? McpSidecar.current() : null;
+        if (mcpEnabled && sidecar == null) {
+            // flag on but sidecar dead → fall through with a one-line warn
+            SiasWorkshop.LOGGER.warn("[AgentDecisionLoop] agents.mcp.enabled but sidecar unavailable; falling back");
+        }
+        DecisionRoute decisionRoute = route(mcpEnabled, sidecar != null, Config.LLM_ENABLED.get());
+        if (decisionRoute == DecisionRoute.MCP) {
+            if (!inFlightRequests.add(agent.getUUID())) {
+                return; // one request in flight per agent
             }
-            // flag on but sidecar dead → fall through to the direct path with a one-line warn
-            SiasWorkshop.LOGGER.warn("[AgentDecisionLoop] agents.mcp.enabled but sidecar unavailable; using direct path");
+            AgentActivity.deciding(agent);
+            AgentActivity.dispatched(level, agent, open.size());
+            JsonObject mcpArgs = new JsonObject();
+            mcpArgs.addProperty("agent", agent.getUUID().toString());
+            sidecar.callTool("decide", mcpArgs, Config.AGENTS_MCP_DECISION_TIMEOUT_SECONDS.get())
+                    .thenAccept(result -> level.getServer().execute(
+                            () -> handleMcpResult(level, agent, board, open, leaseTicks, result)));
+            return;
+        }
+        if (decisionRoute == DecisionRoute.TEMPLATE) {
+            claimByPriority(level, board, agent, open, now, leaseTicks);
+            return;
         }
         if (!inFlightRequests.add(agent.getUUID())) {
             return; // one request in flight per agent
@@ -227,6 +233,24 @@ public final class AgentDecisionLoop {
             handleLlmResult(level, agent, board, open, leaseTicks,
                     LlmClient.LlmResult.failed("request_throw"));
         }
+    }
+
+    /** Where one idle agent's decision goes; see {@link #route}. */
+    public enum DecisionRoute {
+        MCP, DIRECT_LLM, TEMPLATE
+    }
+
+    /**
+     * Pure gate order for {@link #decide}: MCP whenever the flag is on and the sidecar
+     * singleton is alive (the flag alone suffices — no llm.* involvement), else the direct
+     * LLM path when {@code llm.enabled}, else the template fallback. Public so gametests pin
+     * the precedence without toggling ModConfigSpec values (those bake at JVM start).
+     */
+    public static DecisionRoute route(boolean mcpEnabled, boolean sidecarAvailable, boolean llmEnabled) {
+        if (mcpEnabled && sidecarAvailable) {
+            return DecisionRoute.MCP;
+        }
+        return llmEnabled ? DecisionRoute.DIRECT_LLM : DecisionRoute.TEMPLATE;
     }
 
     /**

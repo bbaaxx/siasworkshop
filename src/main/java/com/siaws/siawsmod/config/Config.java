@@ -116,8 +116,9 @@ public class Config {
             .define("agents.mcp.enabled", false);
 
     public static final ModConfigSpec.ConfigValue<String> AGENTS_MCP_COMMAND = BUILDER
-            .comment("Command that launches the MCP sidecar (split on spaces). Resolved against the game",
-                    "working directory — use an absolute path outside dev. Example (dev):",
+            .comment("Command that launches the MCP sidecar (split on spaces). The child inherits the",
+                    "game directory as its working directory (run/ in dev), so relative paths usually",
+                    "miss — an absolute path is the reliable choice everywhere. Example (dev):",
                     "python3 /path/to/siasworkshop/sidecar/sidecar.py --endpoint http://127.0.0.1:1234/v1",
                     "--model prism-ml/bonsai-27b")
             .define("agents.mcp.command", "python3 sidecar/sidecar.py");

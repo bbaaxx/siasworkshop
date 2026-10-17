@@ -170,6 +170,29 @@ public final class AgentsMcpGameTest {
         helper.succeed();
     }
 
+    /**
+     * The gate ORDER is the S1 contract: {@code agents.mcp.enabled} alone (llm.enabled off)
+     * must route through the sidecar — this regression shipped once with the MCP check below
+     * the llm.enabled early-return. ModConfigSpec values bake at JVM start, so this pins the
+     * pure routing function instead of toggling flags mid-test.
+     */
+    @GameTest(template = "empty")
+    public static void mcpGateOrderPrecedence(GameTestHelper helper) {
+        helper.assertTrue(AgentDecisionLoop.route(true, true, false) == AgentDecisionLoop.DecisionRoute.MCP,
+                "mcp flag alone (llm disabled) must route through the sidecar");
+        helper.assertTrue(AgentDecisionLoop.route(true, true, true) == AgentDecisionLoop.DecisionRoute.MCP,
+                "mcp flag must take precedence over the direct llm path");
+        helper.assertTrue(AgentDecisionLoop.route(true, false, true) == AgentDecisionLoop.DecisionRoute.DIRECT_LLM,
+                "flag on but dead sidecar falls through to the direct path");
+        helper.assertTrue(AgentDecisionLoop.route(true, false, false) == AgentDecisionLoop.DecisionRoute.TEMPLATE,
+                "flag on but dead sidecar with llm disabled falls back to templates");
+        helper.assertTrue(AgentDecisionLoop.route(false, true, true) == AgentDecisionLoop.DecisionRoute.DIRECT_LLM,
+                "flag off never uses the sidecar; llm enabled picks the direct path");
+        helper.assertTrue(AgentDecisionLoop.route(false, false, false) == AgentDecisionLoop.DecisionRoute.TEMPLATE,
+                "everything off uses templates");
+        helper.succeed();
+    }
+
     // --- helpers --------------------------------------------------------------------
 
     private static McpSidecar startSidecar(GameTestHelper helper, FakeSidecarPeer peer) throws Exception {
