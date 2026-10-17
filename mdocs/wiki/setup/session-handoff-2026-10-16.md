@@ -12,10 +12,12 @@ confidence: "high"
 source_initiatives: []
 ---
 
-# Session handoff — read this first (current)
+# Session handoff — SUPERSEDED by session-handoff-2026-10-17 (read that one)
 
-Canonical handoff as of 2026-10-16 evening. Supersedes `session-recovery-2026-10-14`
+Canonical handoff as of 2026-10-16 evening. Superses `session-recovery-2026-10-14`
 (kept for history — the agents-v1 build story and the coordinator incident live there).
+**S1 live verification, the 2026-10-17 fix batches, and the research pause are
+recorded in `session-handoff-2026-10-17`.**
 
 Reading order for a fresh agent:
 1. `AGENTS.md`, then this file.

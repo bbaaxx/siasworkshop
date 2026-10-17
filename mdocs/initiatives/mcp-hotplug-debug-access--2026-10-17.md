@@ -6,7 +6,7 @@ created: "2026-10-17"
 updated: "2026-10-17"
 owner: "coordinator"
 tags: ["mcp", "agents", "tooling", "debug", "observability"]
-related_wiki: ["reference/mcp-pattern-tree-design", "setup/agent-shared-ledger"]
+related_wiki: ["reference/mcp-pattern-tree-design", "setup/agent-shared-ledger", "setup/session-handoff-2026-10-17"]
 priority: "medium"
 ---
 
