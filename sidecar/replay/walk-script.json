@@ -1,0 +1,54 @@
+[
+  {
+    "name": "happy_path_native",
+    "mode": "native",
+    "replies": [
+      {"tool_call": {"name": "building_think_through_request", "arguments": {"request": "a small cozy stone house near the station for Dev"}}},
+      {"tool_call": {"name": "building_analyze_terrain", "arguments": {"near": {"x": 12, "y": 64, "z": 30}}}},
+      {"tool_call": {"name": "building_design", "arguments": {"site": {"x": 20, "y": 64, "z": 40}, "style": "cozy"}}},
+      {"tool_call": {"name": "building_select_materials", "arguments": {"design": "mazons_cottage"}}},
+      {"tool_call": {"name": "building_create_blueprint", "arguments": {"design": "mazons_cottage", "anchor": {"x": 20, "y": 64, "z": 40}}}},
+      {"tool_call": {"name": "building_apply_blueprint", "arguments": {"blueprint": "bp:mazons_cottage@20,64,40", "anchor": {"x": 20, "y": 64, "z": 40}}}}
+    ],
+    "expect": {
+      "outcome": "done_converged",
+      "chain": ["building_think_through_request", "building_analyze_terrain", "building_design", "building_select_materials", "building_create_blueprint", "building_apply_blueprint"],
+      "gate_rejects": 0,
+      "rejects": 0
+    }
+  },
+  {
+    "name": "gate_reject_recovers_native",
+    "mode": "native",
+    "replies": [
+      {"tool_call": {"name": "building_think_through_request", "arguments": {"request": "a small cozy stone house near the station for Dev"}}},
+      {"tool_call": {"name": "building_design", "arguments": {"site": {"x": 20, "y": 64, "z": 40}}}},
+      {"tool_call": {"name": "building_apply_blueprint", "arguments": {"blueprint": "bp:mazons_cottage@20,64,40", "anchor": {"x": 20, "y": 64, "z": 40}}}},
+      {"tool_call": {"name": "building_create_blueprint", "arguments": {"design": "mazons_cottage", "anchor": {"x": 20, "y": 64, "z": 40}}}},
+      {"tool_call": {"name": "building_apply_blueprint", "arguments": {"blueprint": "bp:mazons_cottage@20,64,40", "anchor": {"x": 20, "y": 64, "z": 40}}}}
+    ],
+    "expect": {
+      "outcome": "done_converged",
+      "chain": ["building_think_through_request", "building_design", "building_create_blueprint", "building_apply_blueprint"],
+      "gate_rejects": 1,
+      "rejects": 0
+    }
+  },
+  {
+    "name": "happy_path_prompt",
+    "mode": "prompt",
+    "replies": [
+      {"content": "{\"tool\":\"building_think_through_request\",\"args\":{\"request\":\"a small cozy stone house near the station for Dev\"}}"},
+      {"content": "```json\n{\"tool\":\"building_analyze_terrain\",\"args\":{\"near\":{\"x\":12,\"y\":64,\"z\":30}}}\n```"},
+      {"content": "{\"tool\":\"building_design\",\"args\":{\"site\":{\"x\":20,\"y\":64,\"z\":40},\"style\":\"cozy\"}}"},
+      {"content": "{\"tool\":\"building_create_blueprint\",\"args\":{\"design\":\"mazons_cottage\",\"anchor\":{\"x\":20,\"y\":64,\"z\":40}}}"},
+      {"content": "{\"tool\":\"building_apply_blueprint\",\"args\":{\"blueprint\":\"bp:mazons_cottage@20,64,40\",\"anchor\":{\"x\":20,\"y\":64,\"z\":40}}}"}
+    ],
+    "expect": {
+      "outcome": "done_converged",
+      "chain": ["building_think_through_request", "building_analyze_terrain", "building_design", "building_create_blueprint", "building_apply_blueprint"],
+      "gate_rejects": 0,
+      "rejects": 0
+    }
+  }
+]

@@ -117,6 +117,9 @@ ad hoc inside `LlmClient`:
       dependency for CurseForge installs) — S1, with in-mod gametest
 - [ ] S2: first real pattern tree against the building walk (three patterns against
       real mod machinery, same scenario as a v1 build task)
+      → DONE in the sidecar harness (2026-10-16, results SEQ-021): six-step building
+      walk end-to-end, D5 card gating + convergence polling, cloud 2/2 and local
+      1/1 converged
 - [ ] Scenario corpus + assertions for question 4
 - [ ] Recommendation → `reference/` wiki; if adopted, plan the LlmClient→MCP-client
       migration (config: sidecar address instead of endpoint/model/apiKey)
@@ -140,6 +143,16 @@ ad hoc inside `LlmClient`:
       transport, 4 tool kinds, descriptor format, pattern-card expansion,
       session-state split, safety, flag, prompt economy, building-walk reference
       trace, S0-S2 spike plan, open questions).
+- [2026-10-16] S2 done in the sidecar harness: the six-step building walk runs
+      end-to-end (think → analyze_terrain → design → select_materials →
+      create_blueprint → apply_blueprint → observe_task convergence), D5 situational
+      card gating enforced session-side, prompt + native modes, mock simulating the
+      mod-side machinery. Walk replay 3/3 (incl. a gate-reject recovery case), S0
+      regression 20/20. Cloud deepseek native 2/2 converged on the reference chain
+      (21-26s, 0.8-1.1k completion tokens; one run self-recovered from 3 exec
+      rejects); local bonsai prompt-mode 1/1 converged (127s, 1.5k tokens, 2 rejects
+      recovered). Details: ledger SEQ-021; step-level reject forensics added to
+      WalkResult for the corpus phase.
 - [2026-10-16] S0 spike done under `sidecar/` (stdlib-only Python: JSON-RPC/MCP
       client, mock mod in the server role, 3-mode A/B runner, asserted replay
       self-test 20/20). Cloud (deepseek-pro, n=3/mode): 9/9 ok, 0 malformed —

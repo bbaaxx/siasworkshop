@@ -213,6 +213,24 @@ local and one cloud model, A/B against the v1 prompt — see ledger SEQ-020 and
   just fewer malformed replies, it is **containing deliberation budget** on reasoning
   models.
 
+## S2 walk results (2026-10-16)
+
+The six-step building walk runs end-to-end in the sidecar harness (ledger SEQ-021):
+D5 card gating session-side, prompt + native modes, convergence by `observe_task`
+polling (mock advances the build one tick per poll).
+
+- **Cloud deepseek native: 2/2 converged on the exact reference chain** (20.8s/779 tok;
+  26.2s/1101 tok). One run self-recovered from 3 exec rejects — reject-and-retry is a
+  viable correction loop, not just a failure mode.
+- **Local bonsai-27b prompt-mode: 1/1 converged** on the full chain (127s, 1496 tok, 2
+  rejects recovered) — a 27B reasoning model completes a 6-step MCP workflow in
+  prompt-constrained-JSON mode; the budget-containment effect from S0 holds across a
+  longer horizon.
+- Walk replay: 3/3 asserted walks (happy path ×2 modes, gate-reject recovery); S0
+  regression stays 20/20.
+- `WalkResult.reject_details` now records step-level rejects for the scenario corpus
+  (Q4).
+
 ## Spike plan (next, per initiative)
 
 - **S0 — plumbing + parity.** Sidecar speaks MCP over stdio to a mock mod catalog

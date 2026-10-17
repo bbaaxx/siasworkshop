@@ -1,0 +1,40 @@
+{
+  "name": "walk_build",
+  "player_name": "Dev",
+  "build_request": "a small cozy stone house near the station for Dev",
+  "observation": "[SELF] name=Workshop Agent pos=12,64,30 hp=20/20 held=empty task=idle inv=2/27 slots: torchx8\n[PLAYERS] Dev@6.2m hp=20 food=20 held=siasworkshop:agent_inspector\n[NEARBY BLOCKS] total=17240 types=19 top: stonex9011, dirtx3204, grass_blockx1502, sandx802, oak_logx88 otherx1673 | poi: bedx0 chestx1(-2,+0,+3) crafting_tablex0 furnacex0 torchx0\n[NEARBY ENTITIES] agents=1 villagers=2 hostiles=0 others=3\n[ENVIRONMENT] dim=overworld biome=plains time=6000(day) weather=clear light=15\n[CAPABILITIES once working a task] move(x,z), follow(player), gather(block), chop(), mine(block), place(block), build(blueprint), deposit(chest), withdraw(chest), light(), use(item), say(player,msg), rest(), claim()",
+  "open_tasks": [
+    {
+      "key": "comfort:light:9a41f0c2-7d18-4a5e-b3f9-2c8e6d1f4a77",
+      "type": "COMFORT_LIGHT",
+      "detail": "dark spot near Dev at 9,63,25",
+      "claimable": true
+    }
+  ],
+  "sites": [
+    {"pos": {"x": 20, "y": 64, "z": 40}, "flat": true, "chestDist": 6, "note": "flat plains shelf by the station"},
+    {"pos": {"x": -14, "y": 63, "z": 22}, "flat": true, "chestDist": 11, "note": "across the creek, farther from storage"}
+  ],
+  "cards": [
+    {
+      "name": "mazons_cottage",
+      "size": "9x7x6",
+      "stepSummary": "foundation, walls, roof, door",
+      "styleTags": ["cozy", "small", "stone"],
+      "palette": {"minecraft:stone_bricks": 86, "minecraft:oak_planks": 54, "minecraft:glass": 12}
+    },
+    {
+      "name": "watchtower",
+      "size": "5x11x5",
+      "stepSummary": "foundation, shaft, platform, ladder",
+      "styleTags": ["tall", "defensive", "stone"],
+      "palette": {"minecraft:stone_bricks": 220, "minecraft:cobblestone": 60}
+    }
+  ],
+  "materials": {
+    "minecraft:stone_bricks": 240,
+    "minecraft:oak_planks": 80,
+    "minecraft:glass": 20,
+    "minecraft:cobblestone": 10
+  }
+}

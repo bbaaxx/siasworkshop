@@ -126,6 +126,52 @@ def replay(script_path: str, scenario_path: str) -> int:
     return 1 if failures else 0
 
 
+def run_walk_one(model, model_tag: str, scenario_path: str, profile: dict,
+                 mode: str) -> dict:
+    from session import run_pattern_walk
+    client = spawn_mock(scenario_path)
+    try:
+        client.start()
+        client.list_tools()
+        scenario = load_scenario(scenario_path)
+        result = run_pattern_walk(model, model_tag, client, scenario, profile, mode=mode)
+        return result.to_row(model=model_tag, scenario=scenario.get("name", scenario_path),
+                             iteration=0)
+    finally:
+        client.close()
+
+
+def replay_walk(script_path: str, scenario_path: str) -> int:
+    """Asserted multi-step building-walk replays (the S2 gametest analog)."""
+    from session import run_pattern_walk
+    with open(script_path, encoding="utf-8") as fh:
+        walks = json.load(fh)
+    scenario = load_scenario(scenario_path)
+    failures = 0
+    for walk in walks:
+        mode = walk.get("mode", "native")
+        model = FakeModel(walk["replies"], scenario)
+        row = run_walk_one(model, mode, scenario_path, {}, mode)
+        expect = walk["expect"]
+        checks = [("outcome", row["outcome"], expect["outcome"]),
+                  ("chain", row["tools_chain"], expect["chain"])]
+        if "gate_rejects" in expect:
+            checks.append(("gate_rejects", row["gate_rejects"], expect["gate_rejects"]))
+        if "rejects" in expect:
+            checks.append(("rejects", row["rejects"], expect["rejects"]))
+        failed = [c for c in checks if c[1] != c[2]]
+        status = "PASS" if not failed else "FAIL"
+        if failed:
+            failures += 1
+        print(f"[{status}] {mode:<7} {walk['name']:<32} outcome={row['outcome']} "
+              f"steps={row['steps']} rejects={row['rejects']}/{row['gate_rejects']} "
+              f"task={row['final_task']}")
+        for kind, actual, expected in failed:
+            print(f"        ^ {kind}:\n          expected {expected!r}\n          got      {actual!r}")
+    print(f"\nwalk replay: {len(walks)} walks, {failures} failures")
+    return 1 if failures else 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -137,11 +183,15 @@ def main() -> int:
     ap.add_argument("--api-key-env", default="OPENROUTER_API_KEY")
     ap.add_argument("--cloud-config", help="path to siasworkshop-server.toml with an [llm] section")
     ap.add_argument("--replay", metavar="SCRIPT.json", help="scripted-reply plumbing self-test (no network)")
+    ap.add_argument("--walk", action="store_true", help="run the S2 building pattern walk (multi-step) instead of one-shot decisions")
+    ap.add_argument("--walk-mode", choices=["native", "prompt"], help="force the walk's model-facing mode")
     ap.add_argument("--out", help="metrics JSONL path (default: metrics-<ts>.jsonl)")
     args = ap.parse_args()
 
     scenario_path = os.path.abspath(args.scenario)
     if args.replay:
+        if args.walk:
+            return replay_walk(os.path.abspath(args.replay), scenario_path)
         return replay(os.path.abspath(args.replay), scenario_path)
 
     endpoint, model, api_key = args.endpoint, args.model, None
@@ -159,8 +209,26 @@ def main() -> int:
     profile = profile_for(model)
     profile = dict(profile, timeout_seconds=timeout_s)
     chat = OpenAiChat(endpoint, api_key, timeout_s)
-    modes = MODES if args.mode == "all" else [args.mode]
     out_path = args.out or f"metrics-{time.strftime('%Y%m%d-%H%M%S')}.jsonl"
+    rows: list[dict] = []
+    if args.walk:
+        walk_mode = args.walk_mode or ("native" if profile["mode"] == "native" else "prompt")
+        with open(out_path, "a", encoding="utf-8") as out:
+            for iteration in range(1, args.iterations + 1):
+                row = run_walk_one(chat, model, scenario_path, profile, walk_mode)
+                row["iteration"] = iteration
+                rows.append(row)
+                out.write(json.dumps(row) + "\n")
+                out.flush()
+                print(f"iter {iteration} walk({walk_mode}) -> outcome={row['outcome']} "
+                      f"steps={row['steps']} chain={' > '.join(row['tools_chain'])} "
+                      f"rejects={row['rejects']}/{row['gate_rejects']} "
+                      f"total={row['total_latency_ms']}ms ctoks={row['completion_tokens']}")
+        ok = sum(1 for r in rows if r["outcome"] == "done_converged")
+        print(f"\nwalk summary: {ok}/{len(rows)} converged")
+        print(f"metrics -> {out_path}")
+        return 0
+    modes = MODES if args.mode == "all" else [args.mode]
     rows: list[dict] = []
     with open(out_path, "a", encoding="utf-8") as out:
         for iteration in range(1, args.iterations + 1):

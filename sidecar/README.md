@@ -33,6 +33,28 @@ decision effect set; when `observe.*` tools were offered too, the cloud model
 spontaneously re-observed 2/3 runs instead of deciding — good multi-step instinct,
 recorded for S2, but not a decision-shaped reply.)
 
+## S2: the building pattern walk
+
+`--walk` runs the first real pattern tree end-to-end: `building.think_through_request`
+→ `analyze_terrain` → `design` → `select_materials` → `create_blueprint` →
+`apply_blueprint` → poll `observe_task` until the build converges. The mock simulates
+the mod-side machinery (site ranking, card retrieval, material bills, blueprint store,
+build progress one tick per poll). The session enforces D5 situational gating: a tool
+only works after the pattern card that offers it has opened — walk 2 in
+`replay/walk-script.json` asserts the gate rejects an early `apply_blueprint` and the
+model recovers.
+
+```bash
+# asserted walk replays (no network): 3 walks incl. a gate-reject recovery
+python3 run_spike.py --walk --replay replay/walk-script.json --scenario scenarios/walk_build.json
+
+# real model walks (cloud fast, local slow)
+python3 run_spike.py --cloud-config ../run/saves/TestLLM_01/serverconfig/siasworkshop-server.toml \
+    --walk --iterations 2 --scenario scenarios/walk_build.json
+python3 run_spike.py --endpoint http://127.0.0.1:1234/v1 --model prism-ml/bonsai-27b \
+    --walk --iterations 1 --scenario scenarios/walk_build.json
+```
+
 ## Quickstart
 
 ```bash

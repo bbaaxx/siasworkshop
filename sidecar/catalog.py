@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 
-POS_REF = "#types/pos"
+POS_REF = {"$ref": "#types/pos"}
 
 
 # --- schema subset -----------------------------------------------------------
@@ -18,7 +18,7 @@ def check_value(schema: dict, value) -> str | None:
     """Validate one value against the schema subset; returns an error string or None."""
     ref = schema.get("$ref")
     if ref is not None:
-        if ref == POS_REF:
+        if ref == POS_REF["$ref"]:
             if not (isinstance(value, dict)
                     and all(isinstance(value.get(k), int) and not isinstance(value.get(k), bool)
                             for k in ("x", "y", "z"))):
@@ -207,3 +207,87 @@ def first_json_object(text: str) -> dict | None:
         except ValueError:
             return None
     return None
+
+
+# --- S2: the building walk (first real pattern tree) ---------------------------
+# Reference walk from mcp-pattern-tree-design.md; children wiring implements D5
+# situational gating — a pattern's card only offers the children valid right now.
+
+BUILDING_WALK_TOOLS: list[Tool] = [
+    Tool(id="building.think_through_request", kind="pattern",
+         description="Think through a build request: turn a free-form wish into a concrete design "
+                     "intent and open the next steps (site analysis, design).",
+         inputs={"type": "object",
+                 "properties": {"request": {"type": "string"}, "near": POS_REF},
+                 "required": ["request"]},
+         args_hint="request=<free-form wish>, near={x,y,z} optional"),
+    Tool(id="building.analyze_terrain", kind="pattern",
+         description="Scan candidate build sites near a position: flatness, station/chest proximity, "
+                     "guard radius. Returns ranked sites.",
+         inputs={"type": "object",
+                 "properties": {"near": POS_REF},
+                 "required": ["near"]},
+         args_hint="near={x,y,z}"),
+    Tool(id="building.design", kind="pattern",
+         description="Retrieve matching build designs for the intent and site; returns options with "
+                     "size, step summary, style tags, palette.",
+         inputs={"type": "object",
+                 "properties": {"site": POS_REF, "style": {"type": "string"}},
+                 "required": ["site"]},
+         args_hint="site={x,y,z}, style=<optional tag filter>"),
+    Tool(id="building.select_materials", kind="pattern",
+         description="Compute the material bill of a design against nearby storage: needed vs "
+                     "available, missing list, affordability verdict.",
+         inputs={"type": "object",
+                 "properties": {"design": {"type": "string"}},
+                 "required": ["design"]},
+         args_hint="design=<card name>"),
+    Tool(id="building.create_blueprint", kind="pattern",
+         description="Compile a chosen design into a placeable blueprint at an anchor site.",
+         inputs={"type": "object",
+                 "properties": {"design": {"type": "string"}, "anchor": POS_REF},
+                 "required": ["design", "anchor"]},
+         args_hint="design=<card name>, anchor={x,y,z}"),
+    Tool(id="building.apply_blueprint", kind="effect",
+         description="Enqueue the build: claim/enqueue the board task and place blocks over time. "
+                     "Observe convergence via observe_task.",
+         inputs={"type": "object",
+                 "properties": {"blueprint": {"type": "string"}, "anchor": POS_REF},
+                 "required": ["blueprint", "anchor"]},
+         args_hint="blueprint=<blueprint id from create_blueprint>, anchor={x,y,z}"),
+]
+
+# children offered by each pattern once it completes (D5 card gating)
+WALK_CHILDREN: dict[str, list[str]] = {
+    "building.think_through_request": ["building.analyze_terrain", "building.design"],
+    "building.analyze_terrain": ["building.design"],
+    "building.design": ["building.select_materials", "building.create_blueprint"],
+    "building.select_materials": ["building.create_blueprint"],
+    "building.create_blueprint": ["building.apply_blueprint"],
+}
+
+WALK_ENTRY_TOOLS = ["building.think_through_request"]
+WALK_ESCAPE_TOOLS = ["rest"]  # an agent may always choose to idle out
+
+
+def walk_tool_by_wire(name: str) -> Tool | None:
+    for tool in BUILDING_WALK_TOOLS:
+        if tool.wire == name:
+            return tool
+    return None
+
+
+def render_walk_system() -> str:
+    return ("You are a Minecraft villager-agent running the BUILDING workflow. Work the request "
+            "step by step with the tools you are offered; each result opens the next valid steps. "
+            "Finish by applying a blueprint (it executes in the world over time), or rest if the "
+            "request cannot be worked. Think briefly, act with one tool call at a time.")
+
+
+def render_walk_prompt_block(allowed: list[Tool]) -> str:
+    """Prompt-mode rendering of the situationally-allowed tool set (re-sent every turn)."""
+    lines = ["TOOLS AVAILABLE RIGHT NOW (call exactly one as {\"tool\":\"<id>\",\"args\":{...}}):"]
+    for t in allowed:
+        hint = f" args: {t.args_hint}" if t.args_hint else ""
+        lines.append(f"- {t.wire} — {t.description}{hint}")
+    return "\n".join(lines)
