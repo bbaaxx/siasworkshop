@@ -6,7 +6,7 @@ created: "2026-10-14"
 updated: "2026-10-14"
 related_initiatives: ["agent-embodiment-observation--2026-10-13"]
 tags: ["design","llm","agents","entities","observation","goals"]
-lifecycle: "draft"
+lifecycle: "stable"
 knowledge_type: "reference"
 confidence: "medium"
 source_initiatives: ["agent-embodiment-observation--2026-10-13"]

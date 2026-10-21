@@ -22,6 +22,7 @@
 - **Integrate mdocs into coordinator workflow** (done) — mdocs-coordinator-integration--2026-10-10.md — 2026-10-10 — [tooling, mdocs, agents]
 - **Research open-source mod ecosystem** (done) — mod-ecosystem-research--2026-10-07.md — 2026-10-07 — []
 - **Multi-version release setup: 1.20.1 + 1.21.1** (done) — multi-version-release-setup-1-20-1-1-21-1--2026-10-08.md — 2026-10-08 — [tooling, release, backport, ci]
+- **Post-polish batch: kev coverage recalibration, COMFORT_SHELTER executor, mdocs graph hygiene** (active) — post-polish-batch-kev-coverage-recalibration-comfort-shelter-executor-mdocs-graph-hygiene--2026-10-21.md — 2026-10-21 — [agents, sidecar, kev, comfort, mdocs, hygiene]
 - **Scaffold project structure and dev loop** (done) — project-scaffolding--2026-10-07.md — 2026-10-07 — []
 - **Publish v1.0.2 to CurseForge** (complete) — publish-curseforge-1-0-2--2026-10-13.md — 2026-10-13 — [release, publishing, curseforge]
 - **Publish v1.0.0 to CurseForge** (done) — publish-to-curseforge--2026-10-09.md — 2026-10-09 — [release, publishing, curseforge]

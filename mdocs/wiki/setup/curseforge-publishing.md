@@ -4,7 +4,7 @@ title: "CurseForge Publishing — Sia's Workshop"
 category: "setup"
 created: "2026-10-09"
 updated: "2026-10-09"
-related_initiatives: ["publish-to-curseforge"]
+related_initiatives: ["publish-to-curseforge", "publish-curseforge-1-0-2"]
 tags: ["release","publishing","curseforge"]
 lifecycle: "stable"
 knowledge_type: "how-to"

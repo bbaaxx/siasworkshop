@@ -4,7 +4,7 @@ title: "Migration recommendation: adopt the MCP sidecar as the canonical agent d
 category: "reference"
 created: "2026-10-19"
 updated: "2026-10-19"
-related_initiatives: ["mcp-model-behavior-research--2026-10-15"]
+related_initiatives: ["post-polish-batch-kev-coverage-recalibration-comfort-shelter-executor-mdocs-graph-hygiene", "mcp-model-behavior-research--2026-10-15"]
 tags: ["research","llm","mcp","agents","architecture","decision-record"]
 lifecycle: "stable"
 knowledge_type: "reference"

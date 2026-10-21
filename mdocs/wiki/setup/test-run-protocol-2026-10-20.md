@@ -4,7 +4,7 @@ title: "Test-run protocol: experience the MCP decision layer (4 phases, zero →
 category: "setup"
 created: "2026-10-20"
 updated: "2026-10-20"
-related_initiatives: ["mcp-model-behavior-research--2026-10-15", "mcp-hotplug-debug-access--2026-10-17", "executor-wart-polish-impossible-task-timeout-no-progress-watchdog-multi-chest-withdrawonce-self-collision-guard"]
+related_initiatives: ["post-polish-batch-kev-coverage-recalibration-comfort-shelter-executor-mdocs-graph-hygiene", "mcp-model-behavior-research--2026-10-15", "mcp-hotplug-debug-access--2026-10-17", "executor-wart-polish-impossible-task-timeout-no-progress-watchdog-multi-chest-withdrawonce-self-collision-guard"]
 tags: ["handoff","agents","llm","mcp","test-run","protocol"]
 lifecycle: "evolving"
 knowledge_type: "reference"

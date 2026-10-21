@@ -4,7 +4,7 @@ title: "GameTest Setup Notes (NeoForge 1.21.1)"
 category: "setup"
 created: "2026-10-14"
 updated: "2026-10-14"
-related_initiatives: ["agents-v1-spike-entity-observation--2026-10-14"]
+related_initiatives: ["post-polish-batch-kev-coverage-recalibration-comfort-shelter-executor-mdocs-graph-hygiene", "agents-v1-spike-entity-observation--2026-10-14"]
 tags: ["gametest","testing","neoforge","tooling"]
 lifecycle: "stable"
 knowledge_type: "how-to"
@@ -119,6 +119,15 @@ Hard-won facts from wiring the first GameTests in this repo (agents v1 spike,
   test body (setup → single execution pass → assert → cleanup in one tick), or
   enclose/author the geometry yourself; never assert "cell stays X" across
   ticks unless you control the whole volume.
+- **The empty template is wrapped in a barrier shell (post-polish batch,
+  2026-10-21).** The 3×3×3 air cube sits inside a vanilla GameTest barrier
+  frame covering roughly rel −1..3 in each axis (the cap at rel y=3 is solid
+  barrier). Blocks placed "above the player" at rel y≈2–3 hit the shell, the
+  shell walls off pathing into the core, and the natural superflat surface
+  outside the shell sits one block LOWER (rel y=0 feet, ground at −1) than the
+  template's barrier platform. Camp test geometry at rel ≥5 (e.g. (10,1,10))
+  and remember entities may rest one block above the surface they stand on —
+  "place on the floor beside X" needs a dy∈{0,−1} scan, not a fixed cell.
 - **`ProgressWatchdog` measures double positions, not block cells
   (executor-wart polish, 2026-10-20).** Block-position distances are quantized
   to 1-block² steps: a walking agent moves ~0.05 blocks/tick and only changes

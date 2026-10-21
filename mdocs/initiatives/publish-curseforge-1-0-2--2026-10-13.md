@@ -6,7 +6,7 @@ created: "2026-10-13"
 updated: "2026-10-14"
 owner: ""
 tags: ["release","publishing","curseforge"]
-related_wiki: []
+related_wiki: ["setup/curseforge-publishing"]
 priority: "medium"
 ---
 

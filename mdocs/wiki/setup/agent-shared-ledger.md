@@ -4,7 +4,7 @@ title: "Agent Shared Ledger — Discussion, Planning, Coordination"
 category: "setup"
 created: "2026-10-14"
 updated: "2026-10-20"
-related_initiatives: ["agent-shared-ledger-setup--2026-10-14", "mcp-model-behavior-research--2026-10-15", "mcp-hotplug-debug-access--2026-10-17", "research-digest-player-1-synthetic-game-agents--2026-10-17", "executor-wart-polish-impossible-task-timeout-no-progress-watchdog-multi-chest-withdrawonce-self-collision-guard"]
+related_initiatives: ["post-polish-batch-kev-coverage-recalibration-comfort-shelter-executor-mdocs-graph-hygiene", "agent-shared-ledger-setup--2026-10-14", "mcp-model-behavior-research--2026-10-15", "mcp-hotplug-debug-access--2026-10-17", "research-digest-player-1-synthetic-game-agents--2026-10-17", "executor-wart-polish-impossible-task-timeout-no-progress-watchdog-multi-chest-withdrawonce-self-collision-guard"]
 tags: ["agents","coordination","ledger","planning","process"]
 lifecycle: "stable"
 knowledge_type: "how-to"
