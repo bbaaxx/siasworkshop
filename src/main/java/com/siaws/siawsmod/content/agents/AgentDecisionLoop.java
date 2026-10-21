@@ -25,6 +25,7 @@ import com.siaws.siawsmod.content.agents.build.BuildQueue.BuildJob;
 import com.siaws.siawsmod.content.agents.pool.AgentDecisionPool;
 import com.siaws.siawsmod.content.agents.pool.PoolEntry;
 import com.siaws.siawsmod.content.agents.tasks.BoardTask;
+import com.siaws.siawsmod.content.agents.tasks.ComfortDetectors;
 import com.siaws.siawsmod.content.agents.tasks.TaskBoard;
 import com.siaws.siawsmod.content.llm.LlmActions;
 import com.siaws.siawsmod.content.llm.LlmActions.LlmAction;
@@ -47,6 +48,7 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
@@ -62,10 +64,11 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
  * validated {@link LlmActions} contract.
  *
  * <p>Executors (v1): COMFORT_LIGHT walks to the recomputed nearest dark spot and places one
- * torch per cycle from its own inventory; BUILD walks to the anchor, withdraws palette items
+ * torch per cycle from its own inventory; COMFORT_SHELTER walks to the deficit player and
+ * raises a 3×3 opaque roof over their column plus one bed nearby (places-only, materials
+ * from inventory or nearby chests); BUILD walks to the anchor, withdraws palette items
  * from chests near the anchor (every stocked chest counts until the palette is satisfied),
- * and places blocks. COMFORT_SHELTER is never claimed by the fallback (LLM or a later
- * initiative). Places only — agents never break player-placed blocks in v1.
+ * and places blocks. Places only — agents never break player-placed blocks in v1.
  *
  * <p>Pool citation: the board's resolution hooks already write outcome entries; on top, when
  * a task this agent claimed resolves DONE, the loop cites the pool entries it retrieved at
@@ -418,11 +421,10 @@ public final class AgentDecisionLoop {
         }
     }
 
-    /** Fallback priority: comfort first, then builds; shelter is never fallback-claimed. Public: shared by McpTools. */
+    /** Fallback priority: both comfort types first (a player's need outranks construction), then builds. Public: shared by McpTools. */
     public static BoardTask highestPriority(List<BoardTask> open) {
         return open.stream()
-                .filter(task -> task.type() != BoardTask.Type.COMFORT_SHELTER)
-                .min(Comparator.comparingInt(task -> task.type() == BoardTask.Type.COMFORT_LIGHT ? 0 : 1))
+                .min(Comparator.comparingInt(task -> task.type() == BoardTask.Type.BUILD ? 1 : 0))
                 .orElse(null);
     }
 
@@ -483,9 +485,9 @@ public final class AgentDecisionLoop {
     }
 
     /**
-     * The board tasks an agent may see at a decision point: OPEN, excluding COMFORT_SHELTER
-     * (no executor yet — claiming it ping-pongs) and comfort deficits whose player left.
-     * Public: shared by the MCP tool surface ({@code McpTools}).
+     * The board tasks an agent may see at a decision point: OPEN tasks, excluding comfort
+     * deficits whose player left (both comfort types are player-scoped). Public: shared by
+     * the MCP tool surface ({@code McpTools}).
      */
     public static List<BoardTask> openTasks(ServerLevel level, TaskBoard board) {
         List<BoardTask> open = new ArrayList<>();
@@ -493,15 +495,8 @@ public final class AgentDecisionLoop {
             if (task.status() != BoardTask.Status.OPEN) {
                 continue;
             }
-            // COMFORT_SHELTER has no executor in v1: claiming it ping-pongs (the live S1 run
-            // caught the model claiming it through the MCP surface and the executor instantly
-            // releasing). Excluded HERE — single source of truth for decide(), the MCP
-            // surface (McpTools), and the template fallback (highestPriority).
-            if (task.type() == BoardTask.Type.COMFORT_SHELTER) {
-                continue;
-            }
             // comfort deficits belong to a specific player — never claim one whose player is gone
-            if (task.type() == BoardTask.Type.COMFORT_LIGHT && !playerOnline(level, task.key())) {
+            if (task.type() != BoardTask.Type.BUILD && !playerOnline(level, task.key())) {
                 continue;
             }
             open.add(task);
@@ -544,12 +539,8 @@ public final class AgentDecisionLoop {
         }
         return switch (task.type()) {
             case COMFORT_LIGHT -> executeLight(level, board, agent, task);
+            case COMFORT_SHELTER -> executeShelter(level, board, agent, task, now);
             case BUILD -> executeBuild(level, board, pool, agent, task, now, poolMaxEntries);
-            case COMFORT_SHELTER -> { // never claimed by fallback; release if we somehow hold one
-                board.release(task.id(), agent.getUUID(), null, now);
-                agent.setCurrentTaskLabel("");
-                yield false;
-            }
         };
     }
 
@@ -599,6 +590,185 @@ public final class AgentDecisionLoop {
             consumeItem(agent, Items.TORCH);
         }
         return true;
+    }
+
+    // --- shelter executor ----------------------------------------------------------
+
+    /** Neighbor cells the shelter executor tries for the bed, in preference order. */
+    private static final List<BlockPos> BED_CANDIDATES = List.of(
+            new BlockPos(2, 0, 0), new BlockPos(-2, 0, 0), new BlockPos(0, 0, 2), new BlockPos(0, 0, -2));
+
+    /**
+     * Shelter arrival is looser than the build/light 2-block radius: the anchor is the
+     * PLAYER's own cell, which pathing cannot end inside, so the walk terminates one
+     * cell short. Placements are range-checked against the guard radius, not proximity,
+     * so a 3.5-block arrival changes no placement semantics.
+     */
+    private static final double SHELTER_ARRIVAL_DISTANCE = 3.5;
+
+    /**
+     * COMFORT_SHELTER executor (v1): the detector raises "no bed" / "exposed at night"
+     * deficits; the fix is one bed on a free supported floor cell beside the player (clears
+     * "no bed") plus a 3×3 opaque roof two blocks above them (blocks their sky column,
+     * clearing "exposed"). The 2-block gap keeps the roof above standing heads, so the
+     * placement never intersects a body. Places-only, materials from inventory or chests
+     * near the player; the detector stays the completion oracle — when the fix resolves
+     * the deficit it auto-completes the claim.
+     */
+    private static boolean executeShelter(ServerLevel level, TaskBoard board, WorkshopAgentEntity agent,
+            BoardTask task, long now) {
+        ServerPlayer player = level.getServer().getPlayerList().getPlayer(playerUuidOf(task.key()));
+        if (player == null) {
+            releaseForAgent(agent, board, task, now, null);
+            return false;
+        }
+        BlockPos anchor = player.blockPosition();
+        if (agent.blockPosition().distSqr(anchor) > SHELTER_ARRIVAL_DISTANCE * SHELTER_ARRIVAL_DISTANCE) {
+            AgentActivity.working(agent, task, "heading there");
+            navigate(agent, anchor);
+            if (isStuck(agent)) {
+                releaseForAgent(agent, board, task, now, "unroutable");
+                clearStuck(agent);
+                return false;
+            }
+            return true; // still walking
+        }
+
+        // Remaining work, computed fresh each pass — the anchor, roof, and bed candidates
+        // all follow the player's live position.
+        List<BlockPos> roofRemaining = new ArrayList<>();
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                BlockPos cell = anchor.offset(dx, 2, dz);
+                if (!level.getBlockState(cell).is(Blocks.OAK_PLANKS)) {
+                    roofRemaining.add(cell);
+                }
+            }
+        }
+        boolean bedPlaced = hasBedNearbyCell(level, anchor);
+        if (!bedPlaced) {
+            BlockPos bedCell = findBedCell(level, anchor);
+            if (bedCell == null) {
+                // no free supported floor cell beside the player — the world must change
+                // (mirrors the light executor's no-valid-placement release)
+                releaseForAgent(agent, board, task, now, null);
+                return false;
+            }
+        }
+        if (roofRemaining.isEmpty() && bedPlaced) {
+            AgentActivity.working(agent, task, "shelter raised");
+            if (ComfortDetectors.isSheltered(level, player, Config.AGENTS_SHELTER_RADIUS.get())) {
+                return true; // deficit resolving; the detector auto-completes the claim
+            }
+            // the player left the canopy — hand the claim back; the detector re-raises
+            // at their new position
+            releaseForAgent(agent, board, task, now, null);
+            return false;
+        }
+
+        AgentActivity.working(agent, task, "placing shelter");
+        Map<String, Integer> needed = new HashMap<>();
+        if (!bedPlaced) {
+            needed.merge("minecraft:red_bed", 1, Integer::sum);
+        }
+        needed.merge("minecraft:oak_planks", roofRemaining.size(), Integer::sum);
+        withdrawOnce(level, agent, anchor, needed);
+
+        int toPlace = Config.AGENTS_PLACE_PER_CYCLE.get();
+        int placed = 0;
+        if (!bedPlaced && toPlace > 0) {
+            BlockPos bedCell = findBedCell(level, anchor);
+            if (bedCell != null && tryPlaceShelterCell(level, agent, player, bedCell, Blocks.RED_BED)) {
+                placed++;
+                toPlace--;
+            }
+        }
+        for (int i = 0; i < roofRemaining.size() && toPlace > 0; i++) {
+            if (tryPlaceShelterCell(level, agent, player, roofRemaining.get(i), Blocks.OAK_PLANKS)) {
+                placed++;
+                toPlace--;
+            }
+        }
+        if (placed == 0) {
+            boolean anyAir = !bedPlaced && findBedCell(level, anchor) != null;
+            boolean anyAffordable = !bedPlaced && hasItem(agent, Items.RED_BED);
+            for (BlockPos cell : roofRemaining) {
+                if (level.getBlockState(cell).isAir()) {
+                    anyAir = true;
+                    if (hasItem(agent, Items.OAK_PLANKS)) {
+                        anyAffordable = true;
+                    }
+                }
+            }
+            if (!anyAir || !anyAffordable) {
+                // every remaining cell is obstructed, or nothing left to build with —
+                // restockable or world-must-change, so hand the claim back rather than
+                // holding it forever
+                releaseForAgent(agent, board, task, now, null);
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** Attempts one shelter placement; {@code false} means skipped this pass (guarded, obstructed, unstocked, or occupied by a body). */
+    private static boolean tryPlaceShelterCell(ServerLevel level, WorkshopAgentEntity agent, ServerPlayer player,
+            BlockPos target, Block block) {
+        if (!guardCheck(target, player.blockPosition(), BuiltInRegistries.BLOCK.getKey(block).toString())) {
+            return false;
+        }
+        if (!level.getBlockState(target).isAir()) {
+            return false; // obstructed — handled by the zero-progress release
+        }
+        if (placementIntersectsEntity(player, target) || placementEntombsAgent(level, block.defaultBlockState(), agent, target)) {
+            return false; // a body is in the cell — retry a later pass when it clears
+        }
+        if (!hasItem(agent, block.asItem())) {
+            return false;
+        }
+        if (level.setBlock(target, block.defaultBlockState(), 3)) {
+            consumeItem(agent, block.asItem());
+            return true;
+        }
+        return false;
+    }
+
+    /** First free, rigidly-supported neighbor cell for the bed, or null when boxed in.
+     * Tries the player's own level and one below: mock/real players can rest a block
+     * above the surface they stand on, and the bed belongs ON the surface. */
+    @Nullable
+    private static BlockPos findBedCell(ServerLevel level, BlockPos anchor) {
+        for (int dy = 0; dy >= -1; dy--) {
+            for (BlockPos candidate : BED_CANDIDATES) {
+                BlockPos cell = anchor.offset(candidate.getX(), dy, candidate.getZ());
+                if (level.getBlockState(cell).isAir() && Block.canSupportRigidBlock(level, cell.below())) {
+                    return cell;
+                }
+            }
+        }
+        return null;
+    }
+
+    /** True when any bed candidate cell (same level or one below) already holds a bed. */
+    private static boolean hasBedNearbyCell(ServerLevel level, BlockPos anchor) {
+        for (int dy = 0; dy >= -1; dy--) {
+            for (BlockPos candidate : BED_CANDIDATES) {
+                if (level.getBlockState(anchor.offset(candidate.getX(), dy, candidate.getZ()))
+                        .getBlock() instanceof BedBlock) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * True when {@code pos}'s unit cell intersects the entity's bounding box — placing
+     * anything into an occupied cell is refused, even for non-suffocating blocks. Public:
+     * pinned by gametests.
+     */
+    public static boolean placementIntersectsEntity(net.minecraft.world.entity.Entity entity, BlockPos pos) {
+        return entity.getBoundingBox().intersects(new AABB(pos));
     }
 
     private static boolean executeBuild(ServerLevel level, TaskBoard board, AgentDecisionPool pool,

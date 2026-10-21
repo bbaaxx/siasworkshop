@@ -127,18 +127,29 @@ public final class ComfortDetectors {
 
     private static void runShelterDetector(ServerLevel level, TaskBoard board, AgentDecisionPool pool,
             int poolMaxEntries, ServerPlayer player, BlockPos center, long now, int radius) {
-        boolean bedNearby = hasBedNearby(level, center, radius);
         // raw sky light is 15 for any column open to the sky at any time of day (StarLight stores
         // it without the night-time skydarken), so this is a true exposure check, not a daylight check
-        boolean exposed = level.canSeeSky(center);
+        boolean sheltered = isSheltered(level, player, radius);
         String key = "comfort:shelter:" + player.getUUID();
-        if (!bedNearby || exposed) {
+        if (!sheltered) {
+            boolean exposed = level.canSeeSky(center);
             board.raiseIfAbsent(key, BoardTask.Type.COMFORT_SHELTER,
                     (exposed ? "exposed" : "no bed") + " at night for " + player.getName().getString(), now);
         } else {
             board.clearIfOpen(key);
             board.autoCompleteClaimed(key, now, pool, poolMaxEntries);
         }
+    }
+
+    /**
+     * True when this player's shelter deficit is resolved right now: a bed within
+     * {@code radius} AND no open sky above their column. The detector's resolution predicate,
+     * shared with the shelter executor so it can tell "fix is in the world, awaiting the
+     * detector's next verification pass" from "player left the canopy".
+     */
+    public static boolean isSheltered(ServerLevel level, ServerPlayer player, int radius) {
+        BlockPos center = player.blockPosition();
+        return hasBedNearby(level, center, radius) && !level.canSeeSky(center);
     }
 
     private static boolean hasBedNearby(ServerLevel level, BlockPos center, int radius) {

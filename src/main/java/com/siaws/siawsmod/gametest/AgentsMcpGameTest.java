@@ -34,6 +34,8 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 import net.neoforged.neoforge.gametest.GameTestHolder;
 
@@ -200,22 +202,28 @@ public final class AgentsMcpGameTest {
 
     /**
      * The S1 live run caught COMFORT_SHELTER leaking through openTasks() into observe_board
-     * and claim — the exclusion lived only in decide()'s private chain, so the MCP model saw
-     * the task, claimed it, and the executor instantly released it (ping-pong). The exclusion
-     * now lives in openTasks() itself: the board must not list the task and claim must reject
-     * it. The mock player keeps the shelter key's owner online so hiding can only be the
-     * shelter exclusion.
+     * and claim BEFORE it had an executor — the model claimed it and the executor instantly
+     * released it (ping-pong). The executor now exists (canopy + bed), so the task is a
+     * first-class citizen of the board: it must be listed by observe_board and claimable by
+     * key. The mock player keeps the shelter key's owner online.
      */
     @GameTest(template = "empty")
-    public static void mcpShelterHiddenFromSurface(GameTestHelper helper) throws Exception {
+    public static void mcpShelterVisibleAndClaimable(GameTestHelper helper) throws Exception {
         ServerLevel level = helper.getLevel();
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
-        BlockPos playerPos = helper.absolutePos(new BlockPos(2, 1, 2));
+        // Outside the template's barrier shell (rel -1..3), like the executor test.
+        BlockPos playerPos = helper.absolutePos(new BlockPos(10, 1, 10));
         player.moveTo(playerPos.getX() + 0.5, playerPos.getY(), playerPos.getZ() + 0.5, 0.0F, 0.0F);
         WorkshopAgentEntity agent = spawnAgent(helper);
+        // The executor starts working the moment the claim lands; give it materials and
+        // spawn it within arrival distance so it builds the canopy and HOLDS the claim
+        // (an unstocked or far agent would release it again before the assert below).
+        BlockPos agentSpawn = helper.absolutePos(new BlockPos(12, 1, 10));
+        agent.moveTo(agentSpawn.getX() + 0.5, agentSpawn.getY(), agentSpawn.getZ() + 0.5, 0.0F, 0.0F);
+        agent.getInventory().setItem(0, new ItemStack(Items.OAK_PLANKS, 16));
+        agent.getInventory().setItem(1, new ItemStack(Items.RED_BED, 1));
         TaskBoard board = AgentWorldData.board(level);
         String key = "comfort:shelter:" + player.getUUID();
-        board.raiseIfAbsent(key, BoardTask.Type.COMFORT_SHELTER, "shelter probe", level.getGameTime());
 
         // the peer's uuid arg is the SHELTER KEY OWNER in this mode (the decide "agent" arg
         // still carries the agent uuid, as the real sidecar does)
@@ -225,29 +233,50 @@ public final class AgentsMcpGameTest {
         JsonObject args = new JsonObject();
         args.addProperty("agent", agent.getUUID().toString());
         AtomicReference<CompletableFuture<McpSidecar.CallResult>> ref = new AtomicReference<>();
-        ref.set(sidecar.callTool("decide", args, 30));
 
+        // The mock player only lands in level.players() a tick after join; openTasks drops
+        // a shelter task whose owner is offline, so the raise + the decide dispatch both
+        // happen in the delayed phase. (The production night detector may already have
+        // raised this key — raiseIfAbsent is idempotent on it.)
         helper.runAfterDelay(40, () -> {
+            try {
+                board.raiseIfAbsent(key, BoardTask.Type.COMFORT_SHELTER, "shelter probe",
+                        level.getGameTime());
+                ref.set(sidecar.callTool("decide", args, 30));
+            } catch (Throwable t) {
+                level.getServer().getPlayerList().remove(player);
+                agent.discard();
+                sidecar.close();
+                throw t;
+            }
+        });
+
+        helper.runAfterDelay(80, () -> {
             try {
                 McpSidecar.CallResult result = ref.get().get(1, TimeUnit.SECONDS);
                 helper.assertTrue(result.usable(), "decide must complete usable: " + result.failure());
                 JsonObject payload = payloadOf(result.json());
-                helper.assertTrue("error".equals(payload.get("decision").getAsString()),
-                        "claiming a hidden shelter task must surface as an error, got: " + payload);
-                helper.assertTrue(String.valueOf(payload.get("detail")).contains("rejected"),
-                        "error detail must carry the mod's reject reason, got: " + payload);
-                helper.assertTrue(board.tasks().stream().anyMatch(task ->
-                        task.key().equals(key) && task.status() == BoardTask.Status.OPEN
-                                && task.claimantUuid() == null),
-                        "shelter task must stay OPEN and unclaimed: " + board.tasks());
+                // The payload is the deterministic contract: the peer listed the board
+                // (shelter must be VISIBLE), claimed BY KEY (must be CLAIMABLE), and
+                // echoes the claimed key. Board-state asserts stay out of this test —
+                // 42 concurrent tests share the level and the production loop moves
+                // claims between ticks.
+                helper.assertTrue("claim".equals(payload.get("decision").getAsString()),
+                        "claiming the now-executable shelter task must succeed, got: " + payload);
+                helper.assertTrue(payload.has("task") && key.equals(payload.get("task").getAsString()),
+                        "the claimed key must be the shelter key: " + payload);
                 helper.assertTrue(peer.failure == null, "peer failure: " + peer.failure);
                 board.clearIfOpen(key);
                 sidecar.close();
                 agent.discard();
                 level.getServer().getPlayerList().remove(player);
                 helper.succeed();
-            } catch (Exception e) {
-                helper.fail("mcpShelterHiddenFromSurface assertion crashed: " + e);
+            } catch (Throwable t) {
+                level.getServer().getPlayerList().remove(player);
+                board.clearIfOpen(key);
+                agent.discard();
+                sidecar.close();
+                helper.fail("mcpShelterVisibleAndClaimable assertion crashed: " + t);
             }
         });
     }
@@ -450,24 +479,31 @@ public final class AgentsMcpGameTest {
         }
 
         /** MODE_SHELTER_PROBE: the raised shelter task (key owned by the mode's uuid arg) must be
-         *  invisible on the board AND unclaimable by key; the test wants an error summary back. */
+         * listed by observe_board and claimable by key now that the task has an executor. */
         private void shelterProbe(int id, JsonObject args) throws Exception {
             String agent = args.get("agent").getAsString();
             JsonObject board = callMod("observe_board", new JsonObject());
             JsonArray open = board.getAsJsonArray("open_tasks");
+            boolean listed = false;
             for (int i = 0; i < open.size(); i++) {
                 if (open.get(i).getAsString().startsWith("comfort:shelter:")) {
-                    throw new IllegalStateException("shelter task leaked onto the board: " + board);
+                    listed = true;
+                    break;
                 }
+            }
+            if (!listed) {
+                throw new IllegalStateException("executable shelter task missing from the board: " + board);
             }
             JsonObject claimArgs = new JsonObject();
             claimArgs.addProperty("agent", agent);
             claimArgs.addProperty("task", "comfort:shelter:" + agentUuid);
-            JsonObject body = callModRaw("claim", claimArgs);
-            if (!body.has("reject")) {
-                throw new IllegalStateException("shelter claim must be rejected, got: " + body);
+            JsonObject claimed = callMod("claim", claimArgs);
+            if (!claimed.has("claimed")) {
+                throw new IllegalStateException("executable shelter claim must succeed, got: " + claimed);
             }
-            respondContent(id, summary("error", "rejected: " + body.get("reject").getAsString()));
+            JsonObject summary = summary("claim", claimed.get("claimed").getAsString());
+            summary.addProperty("task", claimed.get("claimed").getAsString());
+            respondContent(id, summary);
         }
 
         private JsonObject callMod(String name, JsonObject args) throws Exception {

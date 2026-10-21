@@ -11,19 +11,23 @@ import com.siaws.siawsmod.content.agents.build.Blueprint;
 import com.siaws.siawsmod.content.agents.build.BlueprintLibrary;
 import com.siaws.siawsmod.content.agents.build.BuildQueue;
 import com.siaws.siawsmod.content.agents.tasks.BoardTask;
+import com.siaws.siawsmod.content.agents.tasks.ComfortDetectors;
 import com.siaws.siawsmod.content.agents.tasks.TaskBoard;
 import com.siaws.siawsmod.config.Config;
 import com.siaws.siawsmod.init.SiasWorkshopEntities;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Vec3i;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
@@ -326,6 +330,168 @@ public final class AgentsExecutorGameTest {
         helper.succeed();
     }
 
+    // --- COMFORT_SHELTER executor ---------------------------------------------------
+
+    @GameTest(template = "empty", batch = "agentsExecutorShelter", timeoutTicks = 800)
+    public static void shelterExecutorBuildsCanopyAndAutoCompletes(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        level.setDayTime(13000); // night — the shelter detector is night-gated
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        // The 3×3×3 template core is wrapped in a shell of barrier (vanilla GameTest
+        // frame) covering roughly rel -1..3 — anchoring the canopy there made the roof
+        // cells unplaceable barrier and the approach unwalkable. Camp the player well
+        // outside the shell, on open superflat ground.
+        BlockPos feet = helper.absolutePos(new BlockPos(10, 1, 10));
+        player.moveTo(feet.getX() + 0.5, feet.getY(), feet.getZ() + 0.5, 0.0F, 0.0F);
+        WorkshopAgentEntity agent = spawnAgent(helper, new BlockPos(13, 1, 10));
+        agent.getInventory().setItem(0, new ItemStack(Items.OAK_PLANKS, 16));
+        agent.getInventory().setItem(1, new ItemStack(Items.RED_BED, 1));
+        String key = "comfort:shelter:" + player.getUUID();
+
+        // The mock player only lands in level.players() a tick after join — raising the
+        // deficit from the body would let the orphan cleaner eat it before that. Arm at
+        // body time, raise + claim in the delayed phase.
+        boolean[] armed = {false};
+        boolean[] finished = {false};
+        helper.onEachTick(() -> {
+            if (!armed[0] || finished[0]) {
+                return;
+            }
+            AgentDecisionLoop.runExecutionPass(level);
+            if (level.getGameTime() % 20 == 0) {
+                ComfortDetectors.runOnce(level); // the detector is the completion oracle
+            }
+            BoardTask current = boardTaskByKey(level, key);
+            if (current != null && current.status() == BoardTask.Status.DONE) {
+                finished[0] = true;
+                BlockPos anchor = player.blockPosition();
+                for (int dx = -1; dx <= 1; dx++) {
+                    for (int dz = -1; dz <= 1; dz++) {
+                        helper.assertTrue(level.getBlockState(anchor.offset(dx, 2, dz)).is(Blocks.OAK_PLANKS),
+                                "roof cell missing at (" + dx + ",2," + dz + "): "
+                                        + level.getBlockState(anchor.offset(dx, 2, dz)));
+                    }
+                }
+                boolean bedFound = false;
+                for (int dy = 0; dy >= -1 && !bedFound; dy--) {
+                    for (int[] c : new int[][] {{2, 0}, {-2, 0}, {0, 2}, {0, -2}}) {
+                        if (level.getBlockState(anchor.offset(c[0], dy, c[1])).getBlock() instanceof BedBlock) {
+                            bedFound = true;
+                            break;
+                        }
+                    }
+                }
+                helper.assertTrue(bedFound, "bed should be placed beside the player (anchor=" + anchor
+                        + "): " + level.getBlockState(anchor.offset(2, -1, 0)));
+                helper.assertTrue(
+                        ComfortDetectors.isSheltered(level, player, Config.AGENTS_SHELTER_RADIUS.get()),
+                        "the detector itself must see the player as sheltered at the end");
+                level.getServer().getPlayerList().remove(player);
+                cleanup(level, agent, current);
+                helper.succeed();
+            }
+        });
+        helper.runAfterDelay(40, () -> {
+            try {
+                ComfortDetectors.runOnce(level); // raises the deficit (night + exposed, no bed)
+                BoardTask task = AgentWorldData.board(level).activeTask(key);
+                helper.assertTrue(task != null && task.status() == BoardTask.Status.OPEN,
+                        "night exposure should raise the shelter deficit: "
+                                + AgentWorldData.board(level).tasks());
+                claimFor(helper, level, agent, task);
+                armed[0] = true;
+            } catch (Throwable t) {
+                level.getServer().getPlayerList().remove(player);
+                AgentWorldData.board(level).clearIfOpen(key);
+                agent.discard();
+                throw t;
+            }
+        });
+        helper.runAfterDelay(799, () -> {
+            BoardTask current = boardTaskByKey(level, key);
+            BlockPos anchor = player.blockPosition();
+            StringBuilder roof = new StringBuilder();
+            for (int dx = -1; dx <= 1; dx++) {
+                for (int dz = -1; dz <= 1; dz++) {
+                    roof.append('(').append(dx).append(',').append(dz).append(")=")
+                            .append(BuiltInRegistries.BLOCK.getKey(
+                                    level.getBlockState(anchor.offset(dx, 2, dz)).getBlock()).getPath())
+                            .append(' ');
+                }
+            }
+            // Clean up even on the failure path — a stray agent/player poisons later batches.
+            level.getServer().getPlayerList().remove(player);
+            AgentWorldData.board(level).clearIfOpen(key);
+            agent.discard();
+            helper.fail("shelter task never auto-completed: task=" + current
+                    + " agentPos=" + agent.blockPosition()
+                    + " releaseFailures=" + AgentWorldData.board(level).releaseFailures(key)
+                    + " invPlanks=" + countOf(agent, Items.OAK_PLANKS)
+                    + " roof: " + roof
+                    + " bedCell=" + level.getBlockState(anchor.offset(2, 0, 0)));
+        });
+    }
+
+    @GameTest(template = "empty")
+    public static void shelterExecutorReleasesWhenPlayerOffline(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        level.setDayTime(13000);
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        BlockPos feet = helper.absolutePos(new BlockPos(0, 1, 0));
+        player.moveTo(feet.getX() + 0.5, feet.getY(), feet.getZ() + 0.5, 0.0F, 0.0F);
+        WorkshopAgentEntity agent = spawnAgent(helper, new BlockPos(2, 1, 0));
+        String key = "comfort:shelter:" + player.getUUID();
+
+        // Delayed phase: the mock player only lands in level.players() a tick after join,
+        // and the executor's player lookup needs the real join path to have run.
+        helper.runAfterDelay(40, () -> {
+            try {
+                BoardTask task = AgentWorldData.board(level).raiseIfAbsent(key,
+                        BoardTask.Type.COMFORT_SHELTER, "exposed at night for tester", level.getGameTime());
+                claimFor(helper, level, agent, task);
+                level.getServer().getPlayerList().remove(player);
+
+                AgentDecisionLoop.runExecutionPass(level);
+                BoardTask after = boardTaskByKey(level, key);
+                helper.assertTrue(after != null && after.status() == BoardTask.Status.OPEN
+                                && after.claimantUuid() == null,
+                        "a gone player must release the claim transiently: " + after);
+                helper.assertTrue(AgentWorldData.board(level).releaseFailures(key) == null,
+                        "transient release must not start an unreachable streak: "
+                                + AgentWorldData.board(level).releaseFailures(key));
+                helper.assertTrue(agent.isAlive(), "agent should be unharmed");
+                AgentWorldData.board(level).clearIfOpen(key);
+                agent.discard();
+                helper.succeed();
+            } catch (Throwable t) {
+                level.getServer().getPlayerList().remove(player);
+                AgentWorldData.board(level).clearIfOpen(key);
+                agent.discard();
+                throw t;
+            }
+        });
+    }
+
+    @GameTest(template = "empty")
+    public static void shelterPlacementRefusesOccupiedCells(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        BlockPos feet = helper.absolutePos(new BlockPos(0, 1, 0));
+        player.moveTo(feet.getX() + 0.5, feet.getY(), feet.getZ() + 0.5, 0.0F, 0.0F);
+
+        helper.assertTrue(AgentDecisionLoop.placementIntersectsEntity(player, feet),
+                "the player's own cell must intersect their bbox");
+        helper.assertTrue(AgentDecisionLoop.placementIntersectsEntity(player, feet.above()),
+                "the player's head cell must intersect their bbox");
+        helper.assertFalse(AgentDecisionLoop.placementIntersectsEntity(player, feet.offset(3, 0, 0)),
+                "a cell three blocks away must be free");
+        helper.assertFalse(AgentDecisionLoop.placementIntersectsEntity(player, feet.offset(0, 2, 0)),
+                "the canopy cell two blocks up must be free for a standing player");
+
+        level.getServer().getPlayerList().remove(player);
+        helper.succeed();
+    }
+
     // --- helpers ----------------------------------------------------------------
 
     private static WorkshopAgentEntity spawnAgent(GameTestHelper helper, BlockPos relative) {
@@ -385,5 +551,10 @@ public final class AgentsExecutorGameTest {
             }
         }
         return null;
+    }
+
+    private static int countOf(WorkshopAgentEntity agent, net.minecraft.world.item.Item item) {
+        return net.minecraft.world.ContainerHelper.clearOrCountMatchingItems(
+                agent.getInventory(), stack -> stack.is(item), -1, true);
     }
 }
