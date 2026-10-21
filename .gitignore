@@ -48,4 +48,6 @@ node_modules/
 
 ### Python (sidecar) ###
 __pycache__/
-sidecar/metrics-*.jsonl
+# Measurement outputs stay out of the repo (2026-10-20 policy): if results are
+# needed later, commit summaries/excerpts, not the raw jsonl runs.
+sidecar/metrics/
