@@ -1,13 +1,16 @@
 # setup
 
 - [Agent Shared Ledger — Discussion, Planning, Coordination](agent-shared-ledger.md)
+- [Playtest feedback — agent state visibility + MCP surface shape](agent-ux-feedback-2026-10-16.md)
 - [CurseForge Publishing — Sia's Workshop](curseforge-publishing.md)
 - [Datagen notes for 1.21.1 (NeoForge)](datagen-notes-1-21-1.md)
 - [Final Sakura Art Assets](final-art-assets.md)
 - [GameTest Setup Notes (NeoForge 1.21.1)](gametest-notes-1-21-1.md)
 - [MDK First-Run Gotchas](mdk-first-run-gotchas.md)
 - [mdocs Coordinator Integration (docker-agent, A1+B1)](mdocs-coordinator-integration.md)
-- [mdocs Kimi Plugin MCP Launch Fix](mdocs-kimi-plugin-fix.md)
+- [mdocs Kimi Plugin MCP Launch Fix (realpath '-e')](mdocs-kimi-plugin-fix.md)
 - [Multi-Version Release Setup (1.20.1 + 1.21.1)](multi-version-release-notes.md)
+- [Session Handoff — 2026-10-16 (agents + LLM workstream)](session-handoff-2026-10-16.md)
+- [Session Handoff — 2026-10-19 (research initiative COMPLETE: corpus Q4 + Tier-1 measured + migration recommendation; next: integration discussion / executor warts)](session-handoff-2026-10-17.md)
 - [Session Recovery — 2026-10-14 (agents workstream)](session-recovery-2026-10-14.md)
-- [Test-Run Protocol — Experience the MCP Decision Layer (2026-10-20)](test-run-protocol-2026-10-20.md)
+- [Test-run protocol: experience the MCP decision layer (4 phases, zero → full game)](test-run-protocol-2026-10-20.md)
