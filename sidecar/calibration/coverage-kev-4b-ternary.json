@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "model": "kev-4b-ternary",
+  "fitted_at": "2026-10-21T05:26:33+00:00",
+  "fit_method": "2-class temperature (served probabilities, no logits \u2014 calibrates relative to the served distribution) + FPR-budget threshold",
+  "source_rows": 112,
+  "n": 112,
+  "n_pos_claimable": 104,
+  "n_neg_null": 8,
+  "fpr_target": 0.05,
+  "direction": "below",
+  "temperature": 4.0,
+  "threshold": 0.49975,
+  "metrics_before": {
+    "auc": 0.0,
+    "mean_nll": 0.7538,
+    "brier": 0.2802,
+    "tpr_at_threshold": 0.0
+  },
+  "metrics_after": {
+    "auc": 0.0,
+    "mean_nll": 0.7079,
+    "brier": 0.2574,
+    "tpr_at_threshold": 1.0
+  }
+}

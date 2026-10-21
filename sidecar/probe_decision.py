@@ -29,6 +29,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+import calibrate_coverage
 import corpus_score
 
 QUESTION_NAMES = ("claim", "coverage")
@@ -36,12 +37,13 @@ CLAIM_INSTRUCTIONS = "Which listed open task should this agent claim right now?"
 COVERAGE_INSTRUCTIONS = "Is any listed open task claimable by this agent right now?"
 TIMEOUT_S = 120
 
-# The corpus row schema plus the Tier-1 extras (option_probs, p_yes).
+# The corpus row schema plus the Tier-1 extras (option_probs, p_yes) and the
+# calibration extras (p_yes_cal = the probability the calibrated gate saw).
 ROW_KEYS = ("scenario", "trial", "permutation", "seed", "mode", "model", "tier0",
             "decision_class", "chosen_key", "correct", "failure_class_hit",
             "invalid_reason", "coverage_any_claimable", "coverage_confidence",
             "completion_tokens", "prompt_tokens", "latency_ms", "reward",
-            "board_order", "option_probs", "p_yes")
+            "board_order", "option_probs", "p_yes", "p_yes_cal", "calibration_model")
 
 
 class TransportError(ConnectionError):
@@ -207,10 +209,32 @@ def build_payload(scenario: dict, tasks: list) -> dict:
     }
 
 
-def derive_decision(parsed: dict) -> tuple:
+def calibrated_probability(p_yes: float, calibration: dict | None) -> float:
+    """The probability the coverage gate should see: tempered by the artifact's
+    temperature when one is loaded, raw otherwise."""
+    return calibrate_coverage.calibrated_probability(p_yes, calibration)
+
+
+def gate_threshold(calibration: dict | None) -> float:
+    if not calibration:
+        return 0.5
+    return float(calibration.get("threshold", 0.5))
+
+
+def gate_claims(p_cal: float, calibration: dict | None) -> bool:
+    """Direction-aware gate: normally claim iff p_cal >= threshold; kev-4b-ternary's
+    coverage signal on our corpus is inverted (null boards score higher), so its
+    artifact instead claims iff p_cal <= threshold."""
+    if calibration and calibration.get("direction") == "below":
+        return p_cal <= gate_threshold(calibration)
+    return p_cal >= gate_threshold(calibration)
+
+
+def derive_decision(parsed: dict, calibration: dict | None = None) -> tuple:
     """Client-side decision from the typed answers: chosen_key = argmax-probability
     option of the claim answer (independent of the coverage answer); class = rest
-    iff P(yes) < 0.5. Returns (decision_class, chosen_key, p_yes, option_probs)."""
+    unless the calibrated coverage gate claims (default: P(yes) >= 0.5).
+    Returns (decision_class, chosen_key, p_yes, option_probs)."""
     claim = parsed.get("claim") or {}
     coverage = parsed.get("coverage") or {}
     probs = claim.get("probs") or {}
@@ -221,7 +245,8 @@ def derive_decision(parsed: dict) -> tuple:
     if p_yes is None:
         raise ValueError("systemone wire mismatch: coverage answer carries no P(yes) "
                          "(tried noul/p_yes/probability/p/yes/bool)")
-    if p_yes < 0.5:
+    p_gate = calibrated_probability(float(p_yes), calibration)
+    if not gate_claims(p_gate, calibration):
         return ("rest", None, float(p_yes), probs)
     if chosen is None:
         raise ValueError("systemone wire mismatch: claim answer has no probabilities "
@@ -249,11 +274,12 @@ def build_invalid_row(name, trial, perm, seed, mode, model, assert_spec, reason,
             "invalid_reason": reason, "coverage_any_claimable": None,
             "coverage_confidence": None, "completion_tokens": None, "prompt_tokens": None,
             "latency_ms": latency_ms, "reward": scored["reward"], "board_order": board_order,
-            "option_probs": None, "p_yes": None}
+            "option_probs": None, "p_yes": None, "p_yes_cal": None,
+            "calibration_model": None}
 
 
 def run_scenario(args, path: str, scenario: dict, post, url: str, mode: str,
-                 model: str, out) -> list:
+                 model: str, out, calibration=None) -> list:
     name = scenario.get("name", path)
     assert_spec = scenario.get("assert") or {}
     trials = args.trials or scenario.get("trials") or 8
@@ -274,7 +300,7 @@ def run_scenario(args, path: str, scenario: dict, post, url: str, mode: str,
                 latency_ms = (time.perf_counter() - t0) * 1000.0
                 prompt_tokens, completion_tokens = usage_tokens(body)
                 decision_class, chosen_key, p_yes, probs = derive_decision(
-                    parse_systemone(body, QUESTION_NAMES))
+                    parse_systemone(body, QUESTION_NAMES), calibration)
                 classified = (decision_class, chosen_key, None)
                 scored = corpus_score.score_run(assert_spec, classified, completion_tokens)
                 row = {"scenario": name, "trial": trial, "permutation": perm, "seed": seed,
@@ -288,7 +314,9 @@ def run_scenario(args, path: str, scenario: dict, post, url: str, mode: str,
                        "completion_tokens": completion_tokens, "prompt_tokens": prompt_tokens,
                        "latency_ms": latency_ms, "reward": scored["reward"],
                        "board_order": board_order, "option_probs": probs or None,
-                       "p_yes": p_yes}
+                       "p_yes": p_yes,
+                       "p_yes_cal": calibrated_probability(p_yes, calibration),
+                       "calibration_model": calibration["model"] if calibration else None}
             except Exception as exc:
                 latency_ms = (time.perf_counter() - t0) * 1000.0
                 row = build_invalid_row(name, trial, perm, seed, mode, model, assert_spec,
@@ -334,6 +362,12 @@ def run(args, http_post=None) -> list:
     tag = args.tag or "typed"
     mode = f"systemone:{tag}"
     url = args.endpoint.rstrip("/") + "/v1/systemone"
+    calibration_path = getattr(args, "calibration", None)
+    calibration = calibrate_coverage.load_artifact(calibration_path) if calibration_path else None
+    if calibration:
+        print(f"coverage gate calibrated: {calibration['model']} "
+              f"direction={calibration.get('direction', 'above')} "
+              f"threshold={calibration['threshold']} temperature={calibration['temperature']}")
     out_path = args.out or str(Path("metrics") /
                                f"corpus-{tag}-{time.strftime('%Y%m%d-%H%M%S')}.jsonl")
     Path(out_path).parent.mkdir(parents=True, exist_ok=True)
@@ -347,7 +381,7 @@ def run(args, http_post=None) -> list:
             name = scenario.get("name", path)
             assert_specs[name] = scenario.get("assert") or {}
             all_rows.extend(run_scenario(args, path, scenario, post, url, mode,
-                                         args.endpoint, out))
+                                         args.endpoint, out, calibration))
     print_summary(all_rows, mode, assert_specs)
     if not args.quiet:
         print(f"\nmetrics -> {out_path}")
@@ -368,6 +402,8 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--permutations", type=int, default=None,
                     help="override scenario permutations")
     ap.add_argument("--out", help="metrics JSONL path (default: metrics/corpus-<tag>-<ts>.jsonl)")
+    ap.add_argument("--calibration", help="calibration artifact JSON (calibrate_coverage.py); "
+                                          "gates the coverage answer with its temperature + threshold")
     ap.add_argument("--quiet", action="store_true", help="suppress per-run lines")
     return ap
 
