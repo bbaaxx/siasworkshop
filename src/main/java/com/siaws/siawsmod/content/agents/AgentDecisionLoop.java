@@ -11,6 +11,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Predicate;
 
+import javax.annotation.Nullable;
+
 import com.google.gson.JsonObject;
 import com.siaws.siawsmod.SiasWorkshop;
 import com.siaws.siawsmod.config.Config;
@@ -61,9 +63,9 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
  *
  * <p>Executors (v1): COMFORT_LIGHT walks to the recomputed nearest dark spot and places one
  * torch per cycle from its own inventory; BUILD walks to the anchor, withdraws palette items
- * from a nearby chest (one chest visit per cycle), and places blocks. COMFORT_SHELTER is
- * never claimed by the fallback (LLM or a later initiative). Places only — agents never
- * break player-placed blocks in v1.
+ * from chests near the anchor (every stocked chest counts until the palette is satisfied),
+ * and places blocks. COMFORT_SHELTER is never claimed by the fallback (LLM or a later
+ * initiative). Places only — agents never break player-placed blocks in v1.
  *
  * <p>Pool citation: the board's resolution hooks already write outcome entries; on top, when
  * a task this agent claimed resolves DONE, the loop cites the pool entries it retrieved at
@@ -72,10 +74,14 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
  * <p>Guardrails: every placement must be within {@code agents.guardRadius} of the task anchor
  * and on the task's block whitelist (torch / blueprint palette); violations are skipped with
  * a WARN. Movement is real navigation ({@code moveTo} + {@code isDone}), no teleports; a
- * stuck agent releases its claim after {@value #STUCK_CYCLES} unmoving cycles.
+ * stuck agent (no progress toward its goal for {@value #STUCK_CYCLES} cycles — circling
+ * counts as stuck, motion is not progress) releases its claim, and repeated unroutable
+ * releases terminal-fail the task (see {@link TaskBoard#UNREACHABLE_RELEASE_THRESHOLD}).
+ * Suffocating blocks are never placed into the agent's own cell, and a suffocating agent
+ * bails out of its task.
  */
 public final class AgentDecisionLoop {
-    /** After this many cycles without meaningful movement, a claimed agent gives up (releases). */
+    /** After this many cycles without progress toward its goal, a claimed agent gives up (releases). */
     private static final int STUCK_CYCLES = 40;
     /** Executor releases suppress re-claims of the same task key for this long (game ticks). */
     private static final int RELEASE_COOLDOWN_TICKS = 20 * 60 * 5;
@@ -88,9 +94,10 @@ public final class AgentDecisionLoop {
     private static int ticksUntilRun;
     private static final Set<UUID> inFlightRequests = new HashSet<>();
     private static final Map<UUID, List<String>> pendingCitations = new HashMap<>();
-    private static final Map<UUID, int[]> lastPositions = new HashMap<>();
-    private static final Map<UUID, Integer> stuckCycles = new HashMap<>();
+    private static final Map<UUID, ProgressWatchdog> progressWatches = new HashMap<>();
     private static final Map<UUID, Map<String, Long>> releaseCooldowns = new HashMap<>();
+    /** Per (taskId + placement index) consecutive failed/obstructed placement attempts. */
+    private static final Map<String, Integer> placeFailures = new HashMap<>();
 
     private AgentDecisionLoop() {}
 
@@ -292,9 +299,9 @@ public final class AgentDecisionLoop {
     public static void onServerStopping(ServerStoppingEvent event) {
         inFlightRequests.clear();
         pendingCitations.clear();
-        lastPositions.clear();
-        stuckCycles.clear();
+        progressWatches.clear();
         releaseCooldowns.clear();
+        placeFailures.clear();
         ticksUntilRun = 0;
     }
 
@@ -436,12 +443,27 @@ public final class AgentDecisionLoop {
      * instantly re-claimed next decision cycle — the live S1 run showed the model re-picking
      * the same unroutable anchor every cycle and burning a model call per lap. Cooldowns are
      * per-agent and checked lazily in {@link #decide}.
+     *
+     * <p>{@code failureClass} feeds the board's consecutive-release streak: {@code "unroutable"}
+     * from the stuck watchdog (the world makes the task impossible as it stands); null for
+     * transient releases (restockable / world may change). When the board terminal-fails the
+     * task ({@code FAILED("unreachable")} after {@link TaskBoard#UNREACHABLE_RELEASE_THRESHOLD}
+     * unroutable releases), the anti-pattern is recorded in the pool, mirroring
+     * {@code missing_material} terminal semantics.
      */
-    private static void releaseForAgent(WorkshopAgentEntity agent, TaskBoard board, BoardTask task, long now) {
-        board.release(task.id(), agent.getUUID(), now);
+    private static void releaseForAgent(WorkshopAgentEntity agent, TaskBoard board, BoardTask task, long now,
+            @Nullable String failureClass) {
+        board.release(task.id(), agent.getUUID(), failureClass, now);
         agent.setCurrentTaskLabel("");
         releaseCooldowns.computeIfAbsent(agent.getUUID(), k -> new HashMap<>())
                 .put(task.key(), now + RELEASE_COOLDOWN_TICKS);
+        BoardTask after = board.tasks().stream().filter(t -> t.id().equals(task.id())).findFirst().orElse(null);
+        if (after != null && after.status() == BoardTask.Status.FAILED) {
+            AgentDecisionPool pool = AgentWorldData.pool((ServerLevel) agent.level());
+            pool.recordOutcome(after.poolTags(), "failed: " + after.key() + " (" + after.detail() + ")",
+                    after.poolPlan(), PoolEntry.Outcome.FAILED, after.failureReason(),
+                    now - after.createdAtGameTime(), now, Config.AGENTS_POOL_MAX_ENTRIES.get());
+        }
     }
 
     /**
@@ -511,21 +533,36 @@ public final class AgentDecisionLoop {
     /** Returns true while the task is being worked (lease should be renewed). */
     private static boolean execute(ServerLevel level, TaskBoard board, AgentDecisionPool pool, WorkshopAgentEntity agent,
             BoardTask task, long now, int poolMaxEntries) {
+        if (isSuffocating(level, agent)) {
+            // Head inside a suffocating block — entombed (the live 2026-10-20 leaves episode
+            // killed an agent mid-"placing"). v1 agents never break blocks, so bail out and let
+            // the world/user recover; the placementEntombsAgent guard prevents recurrence.
+            SiasWorkshop.LOGGER.warn("[AgentDecisionLoop] agent {} suffocating at {}; bailing out of {}",
+                    agent.getUUID(), agent.blockPosition(), task.key());
+            releaseForAgent(agent, board, task, now, null);
+            return false;
+        }
         return switch (task.type()) {
             case COMFORT_LIGHT -> executeLight(level, board, agent, task);
             case BUILD -> executeBuild(level, board, pool, agent, task, now, poolMaxEntries);
             case COMFORT_SHELTER -> { // never claimed by fallback; release if we somehow hold one
-                board.release(task.id(), agent.getUUID(), now);
+                board.release(task.id(), agent.getUUID(), null, now);
                 agent.setCurrentTaskLabel("");
                 yield false;
             }
         };
     }
 
+    /** True while the agent's eye sits in a suffocating block (the lethal half of entombment). */
+    private static boolean isSuffocating(ServerLevel level, WorkshopAgentEntity agent) {
+        BlockState eye = level.getBlockState(BlockPos.containing(agent.getEyePosition()));
+        return eye.isSuffocating(level, BlockPos.containing(agent.getEyePosition()));
+    }
+
     private static boolean executeLight(ServerLevel level, TaskBoard board, WorkshopAgentEntity agent, BoardTask task) {
         ServerPlayer player = level.getServer().getPlayerList().getPlayer(playerUuidOf(task.key()));
         if (player == null) {
-            releaseForAgent(agent, board, task, level.getGameTime());
+            releaseForAgent(agent, board, task, level.getGameTime(), null);
             return false;
         }
         BlockPos dark = nearestDarkSpot(level, player.blockPosition(), Config.AGENTS_LIGHT_SCAN_RADIUS.get(),
@@ -537,7 +574,7 @@ public final class AgentDecisionLoop {
             AgentActivity.working(agent, task, "heading there");
             navigate(agent, dark);
             if (isStuck(agent)) {
-                releaseForAgent(agent, board, task, level.getGameTime());
+                releaseForAgent(agent, board, task, level.getGameTime(), "unroutable");
                 clearStuck(agent);
                 return false;
             }
@@ -545,7 +582,7 @@ public final class AgentDecisionLoop {
         }
         if (!hasItem(agent, Items.TORCH)) {
             // nothing attempted — release, don't fail
-            releaseForAgent(agent, board, task, level.getGameTime());
+            releaseForAgent(agent, board, task, level.getGameTime(), null);
             return false;
         }
         BlockPos target = findTorchTarget(level, dark, player.blockPosition());
@@ -553,11 +590,12 @@ public final class AgentDecisionLoop {
             // No valid placement near the nearest spot (sealed cavity, unreachable edge):
             // holding the claim would deadlock the task forever, so release and let the
             // deficit re-raise — the world may change, or another agent may fare better.
-            releaseForAgent(agent, board, task, level.getGameTime());
+            releaseForAgent(agent, board, task, level.getGameTime(), null);
             return false;
         }
         AgentActivity.working(agent, task, "placing");
-        if (level.setBlock(target, Blocks.TORCH.defaultBlockState(), 3)) {
+        if (!placementEntombsAgent(level, Blocks.TORCH.defaultBlockState(), agent, target)
+                && level.setBlock(target, Blocks.TORCH.defaultBlockState(), 3)) {
             consumeItem(agent, Items.TORCH);
         }
         return true;
@@ -581,7 +619,7 @@ public final class AgentDecisionLoop {
             AgentActivity.working(agent, task, "heading there");
             navigate(agent, job.anchor());
             if (isStuck(agent)) {
-                releaseForAgent(agent, board, task, now);
+                releaseForAgent(agent, board, task, now, "unroutable");
                 clearStuck(agent);
                 return false;
             }
@@ -615,8 +653,28 @@ public final class AgentDecisionLoop {
                 continue;
             }
             BlockState current = level.getBlockState(target);
+            String failureKey = task.id() + ":" + i;
+            if (current.is(block)) {
+                placeFailures.remove(failureKey); // resolved since last cycle
+                continue;
+            }
             if (!current.isAir()) {
-                continue; // already handled by countAlreadyPlaced on later passes
+                // Non-replaceable obstruction (natural leaves, a player-placed block): v1 never
+                // breaks blocks, so without a give-up this cell would be retried forever —
+                // the live 2026-10-20 episode. After PLACE_GIVE_UP_CYCLES consecutive cycles
+                // the task terminal-fails instead.
+                if (recordPlaceFailure(board, task, failureKey, target, now, pool, poolMaxEntries)) {
+                    agent.setCurrentTaskLabel("");
+                    return false;
+                }
+                continue;
+            }
+            if (placementEntombsAgent(level, block.defaultBlockState(), agent, target)) {
+                // The blueprint wants a suffocating block where the agent stands — placing it
+                // would entomb the agent (live suffocation death, 12:06:57). Skip; the agent
+                // drifts off the cell (random stroll) and a later cycle places it.
+                SiasWorkshop.LOGGER.warn("[AgentDecisionLoop] skipping placement into agent's own cell: {}", target);
+                continue;
             }
             if (!hasItem(agent, block.asItem())) {
                 board.fail(task.id(), agent.getUUID(), "missing_material:" + placement.blockId(), now, pool, poolMaxEntries);
@@ -625,11 +683,44 @@ public final class AgentDecisionLoop {
             }
             AgentActivity.working(agent, task, "placing");
             if (level.setBlock(target, block.defaultBlockState(), 3)) {
+                placeFailures.remove(failureKey);
                 consumeItem(agent, block.asItem());
                 toPlace--;
+            } else if (recordPlaceFailure(board, task, failureKey, target, now, pool, poolMaxEntries)) {
+                agent.setCurrentTaskLabel("");
+                return false;
             }
         }
         return true;
+    }
+
+    /** Placement give-up: consecutive failed/obstructed cycles on one cell before the task terminal-fails. */
+    private static final int PLACE_GIVE_UP_CYCLES = 20;
+
+    /**
+     * Counts one failed placement attempt on a cell; at {@link #PLACE_GIVE_UP_CYCLES} fails the
+     * task {@code obstructed:<x>,<y>,<z>}. Returns true when the task was failed.
+     */
+    private static boolean recordPlaceFailure(TaskBoard board, BoardTask task, String failureKey, BlockPos target,
+            long now, AgentDecisionPool pool, int poolMaxEntries) {
+        int failures = placeFailures.merge(failureKey, 1, Integer::sum);
+        if (failures < PLACE_GIVE_UP_CYCLES) {
+            return false;
+        }
+        placeFailures.remove(failureKey);
+        board.fail(task.id(), task.claimantUuid(),
+                "obstructed:" + target.getX() + "," + target.getY() + "," + target.getZ(), now, pool, poolMaxEntries);
+        return true;
+    }
+
+    /**
+     * Self-preservation guard: true when placing {@code state} at {@code pos} would put a
+     * suffocating block inside the agent's own bounding box (feet or head cell). Torches and
+     * other non-suffocating blocks may share the agent's cell — standing on your own torch
+     * cell is the normal light-executor case, not entombment. Public: pinned by gametests.
+     */
+    public static boolean placementEntombsAgent(ServerLevel level, BlockState state, WorkshopAgentEntity agent, BlockPos pos) {
+        return state.isSuffocating(level, pos) && agent.getBoundingBox().intersects(new AABB(pos));
     }
 
     /** Guardrail check shared by executors: inside the guard radius of the anchor (block whitelist is per-caller). */
@@ -643,6 +734,12 @@ public final class AgentDecisionLoop {
         return blockId != null;
     }
 
+    /**
+     * Withdraws palette items from chests near the anchor. Visits EVERY container in the
+     * station-radius cube until the agent holds everything still needed — the first version
+     * stopped at the first chest in scan order, so a stocked chest behind an unstocked one
+     * was invisible and the task terminal-failed on missing_material (SEQ-026).
+     */
     private static void withdrawOnce(ServerLevel level, WorkshopAgentEntity agent, BlockPos anchor,
             Map<String, Integer> needed) {
         if (needed.isEmpty()) {
@@ -650,9 +747,9 @@ public final class AgentDecisionLoop {
         }
         int radius = Config.AGENTS_STATION_RADIUS.get();
         BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
-        for (int dx = -radius; dx <= radius; dx++) {
-            for (int dy = -radius; dy <= radius; dy++) {
-                for (int dz = -radius; dz <= radius; dz++) {
+        for (int dx = -radius; dx <= radius && !allSatisfied(agent, needed); dx++) {
+            for (int dy = -radius; dy <= radius && !allSatisfied(agent, needed); dy++) {
+                for (int dz = -radius; dz <= radius && !allSatisfied(agent, needed); dz++) {
                     cursor.set(anchor.getX() + dx, anchor.getY() + dy, anchor.getZ() + dz);
                     BlockEntity entity = level.getBlockEntity(cursor);
                     if (!(entity instanceof Container chest)) {
@@ -679,10 +776,19 @@ public final class AgentDecisionLoop {
                             agent.getInventory().addItem(taken);
                         }
                     }
-                    return; // one chest visit per cycle
                 }
             }
         }
+    }
+
+    private static boolean allSatisfied(WorkshopAgentEntity agent, Map<String, Integer> needed) {
+        for (Map.Entry<String, Integer> entry : needed.entrySet()) {
+            Item item = BuiltInRegistries.ITEM.get(ResourceLocation.tryParse(entry.getKey()));
+            if (item != Items.AIR && countItem(agent, item) < entry.getValue()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static Map<String, Integer> neededMaterials(List<Blueprint.Placement> placements, int fromIndex) {
@@ -718,27 +824,70 @@ public final class AgentDecisionLoop {
         if (nav.isDone() || agent.tickCount % 10 == 0) {
             nav.moveTo(target.getX() + 0.5, target.getY(), target.getZ() + 0.5, 1.0);
         }
-        trackStuck(agent);
+        trackStuck(agent, target);
     }
 
-    private static void trackStuck(WorkshopAgentEntity agent) {
-        int[] last = lastPositions.get(agent.getUUID());
-        BlockPos pos = agent.blockPosition();
-        if (last != null && last[0] == pos.getX() && last[1] == pos.getY() && last[2] == pos.getZ()) {
-            stuckCycles.merge(agent.getUUID(), 1, Integer::sum);
-        } else {
-            stuckCycles.put(agent.getUUID(), 0);
-        }
-        lastPositions.put(agent.getUUID(), new int[] {pos.getX(), pos.getY(), pos.getZ()});
+    private static void trackStuck(WorkshopAgentEntity agent, BlockPos target) {
+        progressWatches.computeIfAbsent(agent.getUUID(), uuid -> new ProgressWatchdog())
+                .record(target, agent.position());
     }
 
     private static boolean isStuck(WorkshopAgentEntity agent) {
-        return stuckCycles.getOrDefault(agent.getUUID(), 0) >= STUCK_CYCLES;
+        ProgressWatchdog watch = progressWatches.get(agent.getUUID());
+        return watch != null && watch.cycles() >= STUCK_CYCLES;
     }
 
     private static void clearStuck(WorkshopAgentEntity agent) {
-        stuckCycles.remove(agent.getUUID());
-        lastPositions.remove(agent.getUUID());
+        progressWatches.remove(agent.getUUID());
+    }
+
+    /**
+     * Progress-vs-goal stuck detection. The previous watchdog counted position-IDENTICAL
+     * ticks, so an agent circling its target — constant motion, zero progress (arrival-circling
+     * around an unreachable anchor) — never tripped it. This records the squared distance to
+     * the CURRENT goal instead: strict improvement resets the streak; anything else (motionless
+     * or moving without progress) increments it.
+     *
+     * <p>Distances are measured from DOUBLE positions, not block cells: a walking agent moves
+     * ~0.05 blocks/tick, which only changes its block position every few ticks — an integer-
+     * cell metric cannot distinguish slow walking from standing still and would trip mid-walk.
+     * Pure and level-free so gametests can drive it with synthetic samples.
+     */
+    public static final class ProgressWatchdog {
+        /** Minimum real improvement (blocks²) that resets the no-progress streak. */
+        private static final double PROGRESS_EPSILON_SQ = 1.0e-4;
+
+        private BlockPos target;
+        private double bestDistSq = Double.MAX_VALUE;
+        private int cycles;
+
+        /**
+         * Records one (target, position) sample; returns consecutive cycles without progress.
+         * A changed target or any strictly closer sample resets the streak to 0.
+         */
+        public int record(BlockPos target, net.minecraft.world.phys.Vec3 position) {
+            double distSq = position.distanceToSqr(
+                    target.getX() + 0.5, target.getY() + 0.5, target.getZ() + 0.5);
+            if (this.target == null || !this.target.equals(target)
+                    || distSq < bestDistSq - PROGRESS_EPSILON_SQ) {
+                this.target = target.immutable();
+                this.bestDistSq = distSq;
+                this.cycles = 0;
+            } else {
+                this.cycles++;
+            }
+            return this.cycles;
+        }
+
+        public int cycles() {
+            return cycles;
+        }
+
+        public void reset() {
+            this.target = null;
+            this.bestDistSq = Double.MAX_VALUE;
+            this.cycles = 0;
+        }
     }
 
     // --- pool citations ------------------------------------------------------------

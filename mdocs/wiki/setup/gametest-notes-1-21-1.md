@@ -96,6 +96,36 @@ Hard-won facts from wiring the first GameTests in this repo (agents v1 spike,
   of who claimed it), poll with body-time-registered callbacks, pass a
   claim-key filter seam to the loop, and pin `agents.decisionIntervalSeconds`
   high in the seeded TOML so the global decision pass can't fire mid-test.
+- **The production decide fires CROSS-BATCH (executor-wart polish, 2026-10-20).**
+  Batches share the level and `ticksUntilRun` is only reset on server STOP, so
+  the production loop's unfiltered decide lands every
+  `decisionIntervalSeconds` (600 ticks at the seeded 30 s) in WHATEVER batch is
+  running then. Two corollaries, both burned into red full-suite runs: (1) any
+  idle agent left alive by an earlier batch gets claimed onto a later batch's
+  open task (stray agents must be `discard()`ed — see AgentsMcpGameTest — and a
+  released OPEN task must be `clearIfOpen`'d before the test ends); (2) any test
+  that claims "the open task" via the global `openTasks` list (e.g.
+  `handleMcpResult` fallback tests) must first filter to its own key. Also:
+  `runDecisions(filter)` applies the filter to EVERY agent in the level, so a
+  decide pass inside a test body can hand a just-released OPEN task to a sibling
+  test's idle agent — executor tests should claim directly via `board.claim`
+  and drive only `runExecutionPass`.
+- **The shared batch world has no spatial isolation (executor-wart polish,
+  2026-10-20).** The `*.empty.nbt` fixture is a 3×3×3 AIR cube (133 bytes);
+  adding tests to a batch repacks the structure grid and can park foreign
+  structures within a few blocks, where a neighbor's `fillBox`/`setBlock`
+  (relative coords, another origin) or another agent's placements can overwrite
+  cells your test asserts on. Rule: assert world-state only atomically in the
+  test body (setup → single execution pass → assert → cleanup in one tick), or
+  enclose/author the geometry yourself; never assert "cell stays X" across
+  ticks unless you control the whole volume.
+- **`ProgressWatchdog` measures double positions, not block cells
+  (executor-wart polish, 2026-10-20).** Block-position distances are quantized
+  to 1-block² steps: a walking agent moves ~0.05 blocks/tick and only changes
+  block cell every few ticks, so an integer-cell progress metric trips stuck
+  mid-walk (burned `lightTaskEndToEnd`). Measure `position().distanceToSqr`
+  against the target center with a ~1e-4 epsilon; slow real walking then
+  resets every tick while circling/standing still accumulates.
 - **SavedData in 21.1.256:** construct with
   `new SavedData.Factory<>(Supplier, BiFunction<CompoundTag, HolderLookup.Provider, T>, @Nullable DataFixTypes)`;
   per-entry NBT parsing should try/catch-skip malformed entries (one bad tag

@@ -157,8 +157,12 @@ public final class AgentsMcpGameTest {
         }
         helper.assertTrue(!sidecar.isAlive(), "sidecar must be dead after the peer closes the pipe");
 
-        // the same reconciliation the decision loop runs on an unusable MCP result
-        List<BoardTask> open = AgentDecisionLoop.openTasks(level, board);
+        // the same reconciliation the decision loop runs on an unusable MCP result; filtered
+        // to this test's key — openTasks is global to the shared gametest world, and other
+        // tests legitimately raise open build tasks in the same batch
+        List<BoardTask> open = AgentDecisionLoop.openTasks(level, board).stream()
+                .filter(task -> task.key().equals("gametest:mcp:fallback"))
+                .toList();
         AgentDecisionLoop.handleMcpResult(level, agent, board, open,
                 Config.AGENTS_TASK_LEASE_TICKS.get(), McpSidecar.CallResult.failed("sidecar_dead"));
 

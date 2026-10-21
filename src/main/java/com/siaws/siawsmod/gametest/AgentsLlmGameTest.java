@@ -342,6 +342,9 @@ public final class AgentsLlmGameTest {
                 helper.setBlock(new BlockPos(x, 1, z), Blocks.AIR);
             }
         }
+        // Headroom over the agent's spawn cell (0,1,0): the suffocation bail (executor-wart
+        // polish) correctly refuses to work with the agent's head inside the y=2 stone cap.
+        helper.setBlock(new BlockPos(0, 2, 0), Blocks.AIR);
 
         boolean[] armed = {false};
         boolean[] finished = {false};
@@ -490,8 +493,8 @@ public final class AgentsLlmGameTest {
         UUID agentB = UUID.randomUUID();
 
         helper.assertTrue(board.claim(task.id(), agentA, 100, now), "initial claim");
-        helper.assertTrue(!board.release(task.id(), agentB, now + 10), "non-claimant must not release");
-        helper.assertTrue(board.release(task.id(), agentA, now + 10), "claimant releases");
+        helper.assertTrue(!board.release(task.id(), agentB, null, now + 10), "non-claimant must not release");
+        helper.assertTrue(board.release(task.id(), agentA, null, now + 10), "claimant releases");
         BoardTask released = board.tasks().get(0);
         helper.assertTrue(released.status() == BoardTask.Status.OPEN && released.claimantUuid() == null
                         && released.leaseUntilGameTime() == 0, "release clears claimant + lease: " + released);

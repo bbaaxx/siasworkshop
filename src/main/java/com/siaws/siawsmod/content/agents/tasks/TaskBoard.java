@@ -40,6 +40,35 @@ public class TaskBoard extends SavedData {
     /** Insertion-ordered so iteration order is stable across save/load. */
     private final Map<String, BoardTask> tasks = new LinkedHashMap<>();
 
+    /** Consecutive same-class executor releases that terminal-fail a task key as unreachable. */
+    public static final int UNREACHABLE_RELEASE_THRESHOLD = 3;
+
+    /**
+     * Per-task-key record of the most recent executor release failure class and how many
+     * consecutive releases carried it (persisted, so an unroutable anchor survives restarts).
+     * Entries drop together with their task (see {@link #reapResolved}).
+     */
+    private final Map<String, ReleaseFailures> releaseFailures = new LinkedHashMap<>();
+
+    /** Mutable counter backing the {@link TaskBoard} release-failure map. */
+    public static final class ReleaseFailures {
+        private String lastClass;
+        private int consecutive;
+
+        private ReleaseFailures(String lastClass, int consecutive) {
+            this.lastClass = lastClass;
+            this.consecutive = consecutive;
+        }
+
+        public String lastClass() {
+            return lastClass;
+        }
+
+        public int consecutive() {
+            return consecutive;
+        }
+    }
+
     public static TaskBoard get(ServerLevel level) {
         return level.getDataStorage().computeIfAbsent(FACTORY, DATA_ID);
     }
@@ -182,6 +211,7 @@ public class TaskBoard extends SavedData {
                 return;
             }
             tasks.remove(oldest.id());
+            releaseFailures.remove(oldest.key());
             resolved--;
         }
     }
@@ -216,18 +246,50 @@ public class TaskBoard extends SavedData {
 
     /**
      * Clean unclaim: CLAIMED → OPEN with claimant and lease cleared. Used when the claimant
-     * cannot proceed (e.g. no torches in inventory) — nothing was attempted, so no pool entry.
-     * Only the claimant may release.
+     * cannot proceed — nothing was attempted, so no pool entry.
+     *
+     * <p>{@code failureClass} classifies executor-side releases: {@code "unroutable"} (the
+     * stuck watchdog tripped en route — the world makes the task impossible as it stands).
+     * The board counts CONSECUTIVE same-class releases per task key; at
+     * {@link #UNREACHABLE_RELEASE_THRESHOLD} an unroutable-class release resolves the task
+     * FAILED with reason {@code "unreachable"} (terminal, mirrors missing_material
+     * semantics) instead of re-opening it — a re-issue mints a fresh key via
+     * {@link #raiseIfAbsent}. A null class is a transient release (restockable, world may
+     * change) and resets the streak. Only the claimant may release.
      */
-    public boolean release(String taskId, UUID claimantUuid, long now) {
+    public boolean release(String taskId, UUID claimantUuid, @Nullable String failureClass, long now) {
         BoardTask task = tasks.get(taskId);
         if (task == null || task.status() != BoardTask.Status.CLAIMED
                 || !claimantUuid.equals(task.claimantUuid())) {
             return false;
         }
+        if (failureClass != null && failureClass.equals("unroutable")) {
+            ReleaseFailures failures = releaseFailures.computeIfAbsent(task.key(),
+                    key -> new ReleaseFailures(failureClass, 0));
+            if (!failureClass.equals(failures.lastClass())) {
+                failures.lastClass = failureClass;
+                failures.consecutive = 0;
+            }
+            failures.consecutive++;
+            if (failures.consecutive >= UNREACHABLE_RELEASE_THRESHOLD) {
+                tasks.put(taskId, task.transitioned(BoardTask.Status.FAILED, task.claimantUuid(),
+                        task.leaseUntilGameTime(), now, "unreachable"));
+                releaseFailures.remove(task.key());
+                setDirty();
+                return true;
+            }
+        } else {
+            releaseFailures.remove(task.key());
+        }
         tasks.put(taskId, task.transitioned(BoardTask.Status.OPEN, null, 0, task.resolvedAtGameTime(), null));
         setDirty();
         return true;
+    }
+
+    /** The release-failure streak for {@code key}, or null — tests and diagnostics. */
+    @Nullable
+    public ReleaseFailures releaseFailures(String key) {
+        return releaseFailures.get(key);
     }
 
     /**
@@ -266,6 +328,15 @@ public class TaskBoard extends SavedData {
             list.add(writeTask(task));
         }
         tag.put("tasks", list);
+        ListTag failures = new ListTag();
+        for (Map.Entry<String, ReleaseFailures> entry : releaseFailures.entrySet()) {
+            CompoundTag failure = new CompoundTag();
+            failure.putString("key", entry.getKey());
+            failure.putString("last_class", entry.getValue().lastClass());
+            failure.putInt("consecutive", entry.getValue().consecutive());
+            failures.add(failure);
+        }
+        tag.put("release_failures", failures);
         return tag;
     }
 
@@ -313,6 +384,21 @@ public class TaskBoard extends SavedData {
             } catch (RuntimeException e) {
                 // malformed entry (bad enum name, missing field, …): skip it, keep the world loadable
             }
+        }
+        ListTag failures = tag.getList("release_failures", Tag.TAG_COMPOUND);
+        for (int i = 0; i < failures.size(); i++) {
+            CompoundTag failure = failures.getCompound(i);
+            String key = failure.getString("key");
+            if (key.isEmpty()) {
+                continue;
+            }
+            // stale entries (task reaped or resolved before save) carry no signal — drop them
+            BoardTask task = board.activeTask(key);
+            if (task == null) {
+                continue;
+            }
+            board.releaseFailures.put(key, new ReleaseFailures(
+                    failure.getString("last_class"), failure.getInt("consecutive")));
         }
         return board;
     }
