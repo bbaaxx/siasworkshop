@@ -11,6 +11,7 @@ model-facing surface, not the plumbing.
 from __future__ import annotations
 
 import json
+import random
 import time
 from dataclasses import dataclass, field, asdict
 
@@ -32,9 +33,14 @@ class Decision:
     prompt_tokens: int | None = None
     completion_tokens: int | None = None
     raw_preview: str | None = None
+    coverage_any_claimable: bool | None = None    # Tier-0: separate coverage answer (JEVA)
+    coverage_confidence: float | None = None      # Tier-0: soft confidence, None if unanswered
+    board_seed: int | None = None                 # Tier-0: session leaves None; the runner owns seeding
+    board_order: list | None = None               # Tier-0: task keys in the order shown to the model
 
     def to_row(self, model: str, scenario: str, iteration: int) -> dict:
         row = asdict(self)
+        row["board_order"] = list(self.board_order or [])
         row.update({"model": model, "scenario": scenario, "iteration": iteration})
         return row
 
@@ -50,8 +56,40 @@ def _board_lines(board: dict) -> list[str]:
     return list(board.get("content", {}).get("open_tasks") or [])
 
 
+def _parse_coverage(decision: Decision, coverage) -> None:
+    """Tier-0 prompt mode: tolerant coverage parse. Missing/malformed leaves the
+    fields None — recorded for null-detection metrics, not an invalid decision."""
+    if not isinstance(coverage, dict):
+        return
+    any_claimable = coverage.get("any_claimable")
+    if isinstance(any_claimable, bool):
+        decision.coverage_any_claimable = any_claimable
+    _record_confidence(decision, coverage.get("confidence"))
+
+
+def _strip_coverage(decision: Decision) -> None:
+    """Tier-0 native mode: lift the coverage args out of the tool arguments before
+    catalog validation (check_args would reject them as unknown)."""
+    any_claimable = decision.args.pop("any_claimable", None)
+    if isinstance(any_claimable, bool):
+        decision.coverage_any_claimable = any_claimable
+    _record_confidence(decision, decision.args.pop("confidence", None))
+
+
+def _record_confidence(decision: Decision, confidence) -> None:
+    if isinstance(confidence, (int, float)) and not isinstance(confidence, bool):
+        decision.coverage_confidence = float(confidence)
+
+
 def run_decision(mode: str, model, model_tag: str, client: McpClient,
-                 profile: dict) -> Decision:
+                 profile: dict, tier0: bool = False, rng: random.Random | None = None) -> Decision:
+    """One decision through the mock mod.
+
+    tier0=True (JEVA Tier-0 experimental path): the board lines are shuffled with
+    the caller-seeded rng (order recorded as board_order), and the model must also
+    answer the separate coverage question (never a list option). tier0=False keeps
+    the prompts, tool lists, parse paths, and Decision contents byte-identical.
+    """
     started = time.monotonic()
     obs = client.call("observe_self")
     board = client.call("observe_board")
@@ -62,6 +100,12 @@ def run_decision(mode: str, model, model_tag: str, client: McpClient,
     temperature = profile.get("temperature", 0.3)
     max_tokens = profile.get("max_tokens", 1024)
     decision = Decision(mode=mode)
+
+    if tier0:
+        shuffle_rng = rng if rng is not None else random.Random()
+        open_lines = list(open_lines)
+        shuffle_rng.shuffle(open_lines)
+        decision.board_order = [line.split(" — ")[0] for line in open_lines]
 
     if mode == "v1":
         messages = [
@@ -88,11 +132,16 @@ def run_decision(mode: str, model, model_tag: str, client: McpClient,
         decision.tool, decision.args = action, args
 
     elif mode == "mcp-prompt":
+        if tier0:
+            contract = ('\n\nDecide: reply with exactly one JSON object {"tool":"<id>","args":{...},'
+                        '"coverage":{"any_claimable":true|false,"confidence":<0-100 optional>}}.')
+        else:
+            contract = '\n\nDecide: reply with exactly one JSON object {"tool":"<id>","args":{...}}.'
         messages = [
             {"role": "system", "content": render_prompt()},
             {"role": "user", "content": "OBSERVATION:\n" + observation
              + "\n\nOPEN TASKS:\n" + ("\n".join("- " + l for l in open_lines) or "none")
-             + '\n\nDecide: reply with exactly one JSON object {"tool":"<id>","args":{...}}.'},
+             + contract},
         ]
         reply = model.chat(model_tag, messages, temperature=temperature, max_tokens=max_tokens)
         decision.model_latency_ms = reply.latency_ms
@@ -107,6 +156,8 @@ def run_decision(mode: str, model, model_tag: str, client: McpClient,
             return _finish(decision, started)
         decision.tool = candidate["tool"]
         decision.args = candidate.get("args") if isinstance(candidate.get("args"), dict) else {}
+        if tier0:
+            _parse_coverage(decision, candidate.get("coverage"))
 
     elif mode == "mcp-native":
         # Parity: only the decision effect set is offered natively; observation is
@@ -121,7 +172,7 @@ def run_decision(mode: str, model, model_tag: str, client: McpClient,
             {"role": "user", "content": "OBSERVATION:\n" + observation
              + "\n\nOPEN TASKS:\n" + ("\n".join("- " + l for l in open_lines) or "none")},
         ]
-        reply = model.chat(model_tag, messages, tools=render_native(decision_tools),
+        reply = model.chat(model_tag, messages, tools=render_native(decision_tools, tier0=tier0),
                            temperature=temperature, max_tokens=max_tokens)
         decision.model_latency_ms = reply.latency_ms
         decision.prompt_tokens, decision.completion_tokens = reply.prompt_tokens, reply.completion_tokens
@@ -134,6 +185,8 @@ def run_decision(mode: str, model, model_tag: str, client: McpClient,
             return _finish(decision, started)
         call = reply.tool_calls[0]
         decision.tool, decision.args = call["name"], call["args"]
+        if tier0 and isinstance(decision.args, dict):
+            _strip_coverage(decision)
 
     else:
         decision.decision_outcome = "model_error:unknown_mode:" + mode

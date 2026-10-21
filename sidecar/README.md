@@ -98,6 +98,18 @@ Metrics append to JSONL (`--out`, default `metrics-<ts>.jsonl`); a summary table
   (night light task).
 - `replay/script.json` — scripted raw model replies (valid, fenced, prose-wrapped,
   wrong-shape, unknown tool, bad args, exec-reject, native tool_calls, garbage).
+- `corpus_score.py` / `run_corpus.py` — the Q4 model-behavior CI: pure-function
+  Player-1 scoring (+1/0/−1-wait-fallback, reasoning-length penalty, no terminal
+  penalties; seeded bootstrap CIs; JEVA flip/all-order/null matrix) and the seeded
+  runner (trials × board permutations against `--replay` or any live endpoint;
+  19-key JSONL rows incl. `board_order`).
+- `corpus/` — four hand-authored failure-class scenarios (unroutable anchor,
+  wrong material, station-radius edge, null board) + `gen_variants.py`
+  (randomization axes: chest distance, station radius, materials, routability,
+  board order).
+- `tap_import.py` — converts a recorded `--tap` wire.jsonl into a corpus
+  scenario skeleton (ground truth hand-annotated post-import).
+- `test_corpus.py` / `test_tap_import.py` — corpus + importer self-tests.
 
 ## S1: the in-mod bridge
 
@@ -141,6 +153,38 @@ Stdout stays protocol-pure (only JSON-RPC lines ever reach it — verified by in
 the tap only writes to its file, and a tap I/O error never breaks the wire). Wire
 corruption shows up as `"unparsed"` rows instead of `msg`. Test: `python3 test_tap.py`
 (runs the bridge topology with `--tap` and asserts both directions are captured).
+
+## Q4: the scenario corpus (model-behavior CI)
+
+Question 4 of the research initiative — measurable "stable behavior": recorded
+observations + expected action classes, replayable offline against any endpoint.
+Scoring follows the Player-1 verifiable-reward recipe (dense increments; invalid
+call = penalty + wait fallback; reasoning-length penalty; no terminal penalties)
+plus JEVA Tier-0 metrics (flip rate, all-order accuracy, null-detection matrix —
+a binary coverage answer gives no AUROC, so `coverage_confidence` is recorded for
+Tier-1 typed endpoints). `corpus/` encodes the three live failure classes from
+ledger SEQ-024/026 (unroutable anchor, wrong/missing material, station-radius
+ignorance) + a null board; `gen_variants.py` varies chest distance, station
+radius, materials, anchor routability, and board order so assertions test
+invariance, not one memorized layout. Ground truth lives in each scenario's
+`assert` block (privileged state, never shown to the model).
+
+```bash
+# CI-speed self-tests (stub models, no network): corpus 56 checks + importer
+python3 test_corpus.py && python3 test_tap_import.py
+
+# corpus against a live endpoint (seeded; rows append to metrics/corpus-*.jsonl)
+python3 run_corpus.py --corpus corpus --mode mcp-prompt --trials 8 \
+    --endpoint http://127.0.0.1:1234/v1 --model prism-ml/bonsai-27b
+
+# Tier-0 experimental decide path (seeded board shuffle + separate coverage
+# question; OFF by default, byte-identical prompts when off)
+python3 run_corpus.py --corpus corpus/unroutable_anchor_first_listed.json --tier0 \
+    --endpoint http://127.0.0.1:1234/v1 --model prism-ml/bonsai-27b --permutations 4
+
+# a recorded live tap becomes a scenario skeleton (ground truth by hand after)
+python3 tap_import.py ../run/wire.jsonl --out corpus/live-draft.json
+```
 
 ## Encoded traps (from the ledger — do not relearn)
 

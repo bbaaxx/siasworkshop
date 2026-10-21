@@ -6,8 +6,9 @@ for the building walk (S2): candidate sites, build cards, storage, blueprint sto
 a build task that converges over observe_task polls (simulated ticks).
 
 Mirrors the mod's safety boundary (D7): unknown tools, bad args, out-of-order pattern
-calls, and not-yet-created blueprints are rejected with structured errors the model side
-can read and recover from. Pattern results are D5 cards: {"result": ..., "children": [...]}.
+calls, not-yet-created blueprints, and claims on cooling-down (claimable:false) tasks
+are rejected with structured errors the model side can read and recover from. Pattern
+results are D5 cards: {"result": ..., "children": [...]}.
 """
 from __future__ import annotations
 
@@ -37,8 +38,10 @@ class MockWorld:
         self.intent: dict | None = None
 
     def open_tasks(self) -> list[dict]:
+        # claimable:false tasks stay listed (cooldown is claim-time, not board-time —
+        # "listed but not claimable"); claim rejects them below.
         tasks = [t for t in self.scenario.get("open_tasks", [])
-                 if t["key"] not in self.claimed and t.get("claimable", True)]
+                 if t["key"] not in self.claimed]
         for key, job in self.walk_tasks.items():
             if job["status"] in ("OPEN", "CLAIMED"):
                 tasks.append({"key": key, "type": "BUILD",
@@ -225,6 +228,8 @@ def handle_call(world: MockWorld, name: str, args: dict) -> dict:
         if target is None:
             return {"isError": True, "content": [{"type": "text", "text":
                     json.dumps({"reject": "no open tasks to claim"})}]}
+        if not target.get("claimable", True):
+            return _err({"reject": "cooling down after a recent release"})
         world.claimed[target["key"]] = "agent-1"
         result = {"claimed": target["key"]}
     elif name == "rest":

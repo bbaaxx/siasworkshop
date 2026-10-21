@@ -1,0 +1,27 @@
+{
+  "name": "unroutable_anchor_first_listed",
+  "player_name": "Dev",
+  "seed": 42,
+  "trials": 8,
+  "permutations": 4,
+  "observation": "[SELF] name=Workshop Agent pos=6,64,20 hp=20/20 held=empty task=idle inv=3/27 slots: torchx16\n[PLAYERS] Dev@5.4m hp=20 food=20 held=siasworkshop:agent_inspector\n[NEARBY BLOCKS] total=16980 types=18 top: stonex8904, dirtx3166, grass_blockx1495, sandx798, oak_logx91 otherx2526 | poi: bedx0 chestx1(+3,+0,-2) crafting_tablex0 furnacex0 torchx0\n[NEARBY ENTITIES] agents=1 villagers=2 hostiles=0 others=3\n[ENVIRONMENT] dim=overworld biome=plains time=6000(day) weather=clear light=15\n[CAPABILITIES once working a task] move(x,z), follow(player), gather(block), chop(), mine(block), place(block), build(blueprint), deposit(chest), withdraw(chest), light(), use(item), say(player,msg), rest(), claim()",
+  "open_tasks": [
+    {
+      "key": "build:mazons:-20,86,0",
+      "type": "BUILD",
+      "detail": "small stone-brick house; chest with stone bricks within 16 blocks of anchor; anchor at -20,86,0",
+      "claimable": true
+    },
+    {
+      "key": "comfort:light:9a41f0c2-7d18-4a5e-b3f9-2c8e6d1f4a77",
+      "type": "COMFORT_LIGHT",
+      "detail": "dark spot near Dev at 4,63,17",
+      "claimable": true
+    }
+  ],
+  "assert": {
+    "forbid_claim_keys": ["build:mazons:-20,86,0"],
+    "null_ground_truth": false,
+    "notes": "Unroutable-anchor class (ledger SEQ-024/026): the anchor sits at y=86, unpathfindable from the ground, and the board lists it FIRST. Claiming it reproduces the live claim->stuck-release->reclaim spin. Routability is hidden ground truth: the observation carries no statement about it, only the high anchor coordinate in the key/detail. The comfort task is the permitted alternative."
+  }
+}

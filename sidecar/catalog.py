@@ -65,7 +65,11 @@ def check_args(inputs: dict, args) -> str | None:
 
 
 def resolve(schema: dict) -> dict:
-    """Inline #types/pos refs so the schema is a standalone JSON Schema (native tool rendering)."""
+    """Inline #types/pos refs so the schema is a standalone JSON Schema (native tool rendering).
+
+    Dicts and lists are copied, not aliased — callers may safely extend the result
+    (Tier-0 native rendering adds coverage args) without touching the catalog.
+    """
     out = {}
     for key, val in schema.items():
         if key == "$ref" and val == POS_REF:
@@ -75,6 +79,8 @@ def resolve(schema: dict) -> dict:
                     "additionalProperties": False}
         if isinstance(val, dict):
             out[key] = resolve(val)
+        elif isinstance(val, list):
+            out[key] = list(val)
         else:
             out[key] = val
     return out
@@ -149,13 +155,34 @@ def by_wire(name: str) -> Tool | None:
 
 # --- renderers ----------------------------------------------------------------
 
-def render_native(tools: list[Tool] | None = None) -> list[dict]:
-    """OpenAI/MCP-native tools array (function calling)."""
-    return [{"type": "function",
-             "function": {"name": t.wire,
-                          "description": t.description,
-                          "parameters": resolve(t.inputs)}}
-            for t in (tools or S0_TOOLS)]
+def render_native(tools: list[Tool] | None = None, tier0: bool = False) -> list[dict]:
+    """OpenAI/MCP-native tools array (function calling).
+
+    tier0=True (JEVA Tier-0 experimental decide path): effect tools additionally
+    carry the coverage question as native args — required boolean any_claimable
+    plus optional number confidence (0-100). Session-side strips them before
+    catalog validation; default rendering is unchanged.
+    """
+    tool_list = tools or S0_TOOLS
+    rendered = [{"type": "function",
+                 "function": {"name": t.wire,
+                              "description": t.description,
+                              "parameters": resolve(t.inputs)}}
+                for t in tool_list]
+    if tier0:
+        for tool, desc in zip(tool_list, rendered):
+            if tool.kind != "effect":
+                continue
+            params = desc["function"]["parameters"]
+            props = params.setdefault("properties", {})
+            props["any_claimable"] = {"type": "boolean",
+                                      "description": "Whether any listed task is claimable by you right now (coverage answer)."}
+            props["confidence"] = {"type": "number",
+                                   "description": "Optional confidence 0-100 for the coverage answer."}
+            required = params.setdefault("required", [])
+            if "any_claimable" not in required:
+                required.append("any_claimable")
+    return rendered
 
 
 def render_prompt(tools: list[Tool] | None = None) -> str:

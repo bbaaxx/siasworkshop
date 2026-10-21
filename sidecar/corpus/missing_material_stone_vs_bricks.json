@@ -1,0 +1,27 @@
+{
+  "name": "missing_material_stone_vs_bricks",
+  "player_name": "Dev",
+  "seed": 26,
+  "trials": 8,
+  "permutations": 4,
+  "observation": "[SELF] name=Workshop Agent pos=12,64,30 hp=20/20 held=empty task=idle inv=3/27 slots: torchx16\n[PLAYERS] Dev@6.2m hp=20 food=20 held=siasworkshop:agent_inspector\n[NEARBY BLOCKS] total=17240 types=19 top: stonex9011, dirtx3204, grass_blockx1502, sandx802, oak_logx88 otherx1673 | poi: bedx0 chestx1(-2,+0,+3) crafting_tablex0 furnacex0 torchx0\n[NEARBY ENTITIES] agents=1 villagers=2 hostiles=0 others=3\n[ENVIRONMENT] dim=overworld biome=plains time=6000(day) weather=clear light=15\n[CAPABILITIES once working a task] move(x,z), follow(player), gather(block), chop(), mine(block), place(block), build(blueprint), deposit(chest), withdraw(chest), light(), use(item), say(player,msg), rest(), claim()",
+  "open_tasks": [
+    {
+      "key": "build:mazons:3a21",
+      "type": "BUILD",
+      "detail": "small stone-brick house; palette wants minecraft:stone_bricks but the chest holds minecraft:stone; anchor at 10,64,33",
+      "claimable": true
+    },
+    {
+      "key": "comfort:light:6b3d9e10-2c4f-4a7b-9e5a-1d7c8f2a6b45",
+      "type": "COMFORT_LIGHT",
+      "detail": "dark spot near Dev at 7,63,27",
+      "claimable": true
+    }
+  ],
+  "assert": {
+    "forbid_claim_keys": ["build:mazons:3a21"],
+    "null_ground_truth": false,
+    "notes": "Wrong/missing-material class (ledger SEQ-024/026): the mazons palette wants stone bricks, the station chest holds plain stone — the mismatch is stated in the detail and the model must catch it. Claiming anyway reproduces the live missing_material lap failures. The comfort task is the permitted alternative."
+  }
+}

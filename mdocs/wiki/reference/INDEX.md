@@ -14,6 +14,7 @@
 - [Local Small LLM Feasibility (Qwen3-class, 4-bit, Apple M3 Pro)](local-llm-feasibility.md)
 - [Minecraft Comes Alive (MCA)](mca.md)
 - [MCP Pattern-Tree Design](mcp-pattern-tree-design.md)
+- [MCP Migration Recommendation](mcp-migration-recommendation.md)
 - [Minecraft MCP Server Landscape + yuniko digest](minecraft-mcp-servers.md)
 - [Player-1: Game-Control Post-Training via Synthetic Experience](player-1-game-agents.md)
 - [CoFH Thermal Series](thermal-series.md)

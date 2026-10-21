@@ -1,0 +1,45 @@
+{
+  "name": "live-2026-10-20-09330fcb",
+  "player_name": "Dev",
+  "seed": 42086,
+  "trials": 8,
+  "permutations": 1,
+  "observation": "[SELF] name=Workshop Agent \u00b7 deciding\u2026 pos=-11,80,0 hp=20/20 held=empty task=idle inv=0/27 slots\n[PLAYERS] Dev@7.5m hp=20 food=20 held=siasworkshop:agent_inspector\n[NEARBY BLOCKS] total=18013 types=14 top: stone\u00d712227, dirt\u00d72749, oak_leaves\u00d71068, grass_block\u00d71038, oak_log\u00d7214, birch_leaves\u00d7183 other\u00d7534 | poi: bed\u00d70 chest\u00d74(-5,+1,-1) crafting_table\u00d70 furnace\u00d70 torch\u00d70\n[NEARBY ENTITIES] agents=0 villagers=0 hostiles=0 others=0\n[ENVIRONMENT] dim=overworld biome=forest time=1613(day) weather=rain light=12\n[CAPABILITIES once working a task] move(x,z), follow(player), gather(block), chop(), mine(block), place(block), build(blueprint), deposit(chest), withdraw(chest), light(), use(item), say(player,msg), rest(), claim()",
+  "open_tasks": [
+    {
+      "key": "build:mazons:-20,86,0",
+      "type": "BUILD",
+      "detail": "blueprint=mazons anchor=-20,86,0",
+      "claimable": true
+    },
+    {
+      "key": "build:mazons:-12,81,-1",
+      "type": "BUILD",
+      "detail": "blueprint=mazons anchor=-12,81,-1",
+      "claimable": true
+    },
+    {
+      "key": "comfort:light:380df991-f603-344c-a090-369bad2a924a",
+      "type": "COMFORT",
+      "detail": "134 dark spots near Dev",
+      "claimable": true
+    },
+    {
+      "key": "build:mazons:-20,81,-5",
+      "type": "BUILD",
+      "detail": "blueprint=mazons anchor=-20,81,-5",
+      "claimable": true
+    }
+  ],
+  "assert": {
+    "forbid_claim_keys": [
+      "build:mazons:-20,86,0"
+    ],
+    "null_ground_truth": false,
+    "notes": "Live session 2026-10-20 TestSidecar01 (agent 09330fcb). Ground truth hand-annotated: the -20,86,0 anchor floats mid-air (y=86) with no path \u2014 unroutable. LIVE OUTCOME: bonsai-27b claimed the forbidden key on this very decide (wire line 9-10, 12:09:08) \u2014 the unroutable_anchor_first_listed failure class reproduced in production; released after ~46s, cooldown marched on. Corpus scenario unroutable_anchor_first_listed models the same class. This skeleton kept for the record; the standing hand-authored scenario remains the scored instrument."
+  },
+  "source": {
+    "tap": "../run/wire.jsonl",
+    "lines": 59
+  }
+}

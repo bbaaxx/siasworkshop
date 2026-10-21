@@ -230,6 +230,9 @@ def main() -> int:
     ap.add_argument("--temperature", type=float, default=None)
     ap.add_argument("--max-tokens", type=int, default=None)
     ap.add_argument("--replay", help="scripted replies JSON (offline tests; no network)")
+    ap.add_argument("--scenario", default="scenarios/stone_bricks_chest.json",
+                    help="scenario JSON fed to FakeModel in --replay mode so "
+                         "{{build_key}}/{{player}} placeholders resolve")
     ap.add_argument("--tap", metavar="FILE",
                     help="wire tap: append every inbound/outbound protocol line to FILE as"
                          " timestamped JSON (tail -f for live observation; replayable offline)")
@@ -243,7 +246,9 @@ def main() -> int:
     if args.replay:
         with open(args.replay, encoding="utf-8") as fh:
             script = json.load(fh)
-        model = FakeModel(script, {})
+        with open(args.scenario, encoding="utf-8") as fh:
+            scenario = json.load(fh)
+        model = FakeModel(script, scenario)
         model_tag = mode
     else:
         import os
