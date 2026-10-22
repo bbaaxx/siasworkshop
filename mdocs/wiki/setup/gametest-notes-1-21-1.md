@@ -4,7 +4,7 @@ title: "GameTest Setup Notes (NeoForge 1.21.1)"
 category: "setup"
 created: "2026-10-14"
 updated: "2026-10-14"
-related_initiatives: ["post-polish-batch-kev-coverage-recalibration-comfort-shelter-executor-mdocs-graph-hygiene", "agents-v1-spike-entity-observation--2026-10-14"]
+related_initiatives: ["post-polish-batch-kev-coverage-recalibration-comfort-shelter-executor-mdocs-graph-hygiene", "agents-v1-spike-entity-observation--2026-10-14", "build-executor-self-entombment-station-material-gaps-live-test-2026-10-22"]
 tags: ["gametest","testing","neoforge","tooling"]
 lifecycle: "stable"
 knowledge_type: "how-to"
@@ -141,6 +141,35 @@ Hard-won facts from wiring the first GameTests in this repo (agents v1 spike,
   must not kill world load), and schema-version unknown entries are skipped,
   not mangled. Per-world access:
   `level.getDataStorage().computeIfAbsent(FACTORY, DATA_ID)`.
+- **A blocked (ledger-parked) task is invisible to the cross-batch production
+  decide** (build-executor fixes, 2026-10-22): `openTasks()` filters
+  knowledge-blocked ids, so single-pass ledger assertions (park → assert
+  entry + unclaimability) cannot be poached mid-assert by the unfiltered
+  production `runDecisions` — the blocked filter does double duty as a
+  concurrency guard.
+- **Never assert on `leaseUntilGameTime` within one game tick** (build-executor
+  fixes, 2026-10-22): the lease is always `now + leaseTicks`, and several
+  manual `runExecutionPass` calls inside one test body all read the SAME
+  `level.getGameTime()` — a renewal is indistinguishable from no renewal
+  (`610 > 610` is false even though renew ran). Cost two debug rounds and a
+  temporary LOGGER instrumentation to "prove" an executor starvation that did
+  not exist. Assert state the execution actually changes (blocks placed,
+  inventory counts), or drive the loop across real ticks instead.
+- **Entities cannot path in the batch world** (build-executor fixes,
+  2026-10-22): test agents at the far-flung random positions of the GameTest
+  world never get navigation paths (`moveTo` yields hasPath=false, entities
+  often don't even tick/fall) — vanilla locomotion there is unreliable, and
+  NO pre-existing test ever exercised real walking (they all spawned the agent
+  within the old 2-block arrival radius). Drive the DECISIONS, not the
+  locomotion: assert the boxed-in/staging choices, then simulate the walk with
+  `agent.moveTo(...)` and exercise placement (which is remote by design).
+  Watch out: a "passing" walk-dependent test may be passing on worldgen luck
+  (natural stone at the anchor cell counts as placed).
+- **Build staging tests settle one block lower than spawned** (2026-10-22):
+  outside the barrier shell the natural surface is a block lower than the
+  template platform, so an agent spawned at rel y=1 rests with feet at rel
+  y=0 — anchor the "agent stands inside the footprint" scenario at the
+  settled feet cell (rel y=0), not the spawn cell.
 
 ## Referenced By
 

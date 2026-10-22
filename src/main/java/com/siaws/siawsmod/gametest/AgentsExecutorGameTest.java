@@ -1,6 +1,9 @@
 package com.siaws.siawsmod.gametest;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import com.siaws.siawsmod.content.agents.AgentDecisionLoop;
@@ -10,6 +13,7 @@ import com.siaws.siawsmod.content.agents.WorkshopAgentEntity;
 import com.siaws.siawsmod.content.agents.build.Blueprint;
 import com.siaws.siawsmod.content.agents.build.BlueprintLibrary;
 import com.siaws.siawsmod.content.agents.build.BuildQueue;
+import com.siaws.siawsmod.content.agents.knowledge.AgentKnowledge;
 import com.siaws.siawsmod.content.agents.tasks.BoardTask;
 import com.siaws.siawsmod.content.agents.tasks.ComfortDetectors;
 import com.siaws.siawsmod.content.agents.tasks.TaskBoard;
@@ -328,6 +332,210 @@ public final class AgentsExecutorGameTest {
         helper.assertTrue(agent.isAlive(), "agent should survive once the block is gone");
         cleanup(level, agent, after);
         helper.succeed();
+    }
+
+    // --- build staging + self-extrication + knowledge ledger (live test 2026-10-22) ---
+
+    /**
+     * Authored ground for the staging tests: the batch world is REAL worldgen (the terrain
+     * level varies per structure position — a one-block dip across ten blocks was observed
+     * live), so anything geometry-sensitive must stand on a platform the test controls.
+     * Dirt at rel y=0: top surface rel y=1, feet at rel y=1, free air above.
+     */
+    private static void dirtPlatform(GameTestHelper helper) {
+        for (int dx = 4; dx <= 10; dx++) {
+            for (int dz = 4; dz <= 10; dz++) {
+                helper.setBlock(new BlockPos(dx, 0, dz), Blocks.DIRT);
+            }
+        }
+    }
+
+    @GameTest(template = "empty", batch = "agentsBuildStaging", timeoutTicks = 1000)
+    public static void buildExtricatesItselfAndCompletesFootprint(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        dirtPlatform(helper);
+        // 3×3×3 solid cube whose bottom layer includes the agent's own feet cell — the live
+        // 2026-10-22 defect: the agent built around itself, skipped its own cells forever,
+        // and the task could never complete. The executor must walk out to the staging
+        // cell and place every cell remotely, including the ones it stood in.
+        List<Blueprint.Placement> cube = new ArrayList<>();
+        for (int dx = 0; dx < 3; dx++) {
+            for (int dy = 0; dy < 3; dy++) {
+                for (int dz = 0; dz < 3; dz++) {
+                    cube.add(new Blueprint.Placement("minecraft:stone", new BlockPos(dx, dy, dz)));
+                }
+            }
+        }
+        BlueprintLibrary.INSTANCE.registerForTest(new Blueprint("wartextricate", new Vec3i(3, 3, 3), cube));
+
+        BlockPos anchor = helper.absolutePos(new BlockPos(6, 1, 6));
+        WorkshopAgentEntity agent = spawnAgent(helper, new BlockPos(6, 2, 6)); // settles to feet (6,1,6)
+        helper.setBlock(new BlockPos(4, 1, 6), Blocks.CHEST);
+        stockChest(helper, new BlockPos(4, 1, 6), new ItemStack(Items.STONE, 27));
+
+        BoardTask task = BuildQueue.enqueue(level, "wartextricate", anchor);
+        helper.assertTrue(task != null, "build task should be raised");
+        claimFor(helper, level, agent, task);
+
+        // Boxed-in contract, asserted atomically: while the agent's body intersects the
+        // footprint the executor must refuse to place (the live defect placed everything
+        // around itself and skipped its own cells forever). Gametest entities cannot
+        // path at the far-flung random positions of the batch world (navigation yields
+        // no path there — vanilla locomotion is exercised by live tests), so the one-step
+        // walk to the staging cell is simulated with a moveTo; placement itself is
+        // remote and fully exercised below.
+        Set<BlockPos> footprint = new HashSet<>();
+        for (int dx = 0; dx < 3; dx++) {
+            for (int dy = 0; dy < 3; dy++) {
+                for (int dz = 0; dz < 3; dz++) {
+                    footprint.add(anchor.offset(dx, dy, dz));
+                }
+            }
+        }
+        AgentDecisionLoop.runExecutionPass(level);
+        AgentDecisionLoop.runExecutionPass(level);
+        helper.assertTrue(level.getBlockState(anchor).isAir()
+                        && boardTaskByKey(level, task.key()).status() == BoardTask.Status.CLAIMED,
+                "a boxed-in agent must step out before placing anything");
+        BlockPos staging = AgentDecisionLoop.nearestStagingCell(level, anchor, footprint, 6);
+        helper.assertTrue(staging != null && !footprint.contains(staging)
+                && !footprint.contains(staging.above()),
+                "staging must be a standable cell outside the footprint: " + staging);
+        agent.moveTo(staging.getX() + 0.5, staging.getY(), staging.getZ() + 0.5, 0.0F, 0.0F);
+
+        boolean[] finished = {false};
+        helper.onEachTick(() -> {
+            if (finished[0]) {
+                return;
+            }
+            AgentDecisionLoop.runExecutionPass(level);
+            BoardTask current = boardTaskByKey(level, task.key());
+            if (current != null && current.status() == BoardTask.Status.DONE) {
+                finished[0] = true;
+                for (int dx = 0; dx < 3; dx++) {
+                    for (int dy = 0; dy < 3; dy++) {
+                        for (int dz = 0; dz < 3; dz++) {
+                            helper.assertTrue(
+                                    level.getBlockState(anchor.offset(dx, dy, dz)).is(Blocks.STONE),
+                                    "footprint cell " + dx + "," + dy + "," + dz + " should be stone");
+                        }
+                    }
+                }
+                cleanup(level, agent, current);
+                helper.succeed();
+            } else if (current != null && current.status() == BoardTask.Status.FAILED) {
+                helper.fail("self-entombed build must complete, not fail: " + current);
+            }
+        });
+    }
+
+    @GameTest(template = "empty", batch = "agentsBuildStaging", timeoutTicks = 400)
+    public static void buildStagesOnGroundBelowFloatingAnchor(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        dirtPlatform(helper);
+        // The anchor floats three blocks above the only ground — the live -20,86,0
+        // unreachable cube. The old 2-block 3D arrival against the anchor corner could
+        // never be satisfied there; the executor must stage on the ground below and place
+        // remotely (guard radius, not agent reach, bounds placements).
+        BlueprintLibrary.INSTANCE.registerForTest(new Blueprint("wartstage", new Vec3i(1, 1, 1), List.of(
+                new Blueprint.Placement("minecraft:stone", new BlockPos(0, 0, 0)))));
+
+        BlockPos anchor = helper.absolutePos(new BlockPos(7, 4, 7));
+        WorkshopAgentEntity agent = spawnAgent(helper, new BlockPos(5, 2, 5));
+        agent.getInventory().setItem(0, new ItemStack(Items.STONE, 4));
+
+        // The staging cell must exist BEYOND the old 2-block 3D arrival radius — that is
+        // the whole point for an anchor floating three blocks above the only ground (the
+        // live -20,86,0 unreachable cube). The walk itself is simulated (gametest
+        // entities cannot path at batch-world positions); placement from staging is
+        // remote and fully exercised by the poll below.
+        BlockPos staging = AgentDecisionLoop.nearestStagingCell(level, anchor, Set.of(anchor, anchor.above()), 6);
+        helper.assertTrue(staging != null && staging.distSqr(anchor) > 4,
+                "staging must exist beyond the old 2-block arrival radius: " + staging);
+        agent.moveTo(staging.getX() + 0.5, staging.getY(), staging.getZ() + 0.5, 0.0F, 0.0F);
+
+        BoardTask task = BuildQueue.enqueue(level, "wartstage", anchor);
+        helper.assertTrue(task != null, "build task should be raised");
+        claimFor(helper, level, agent, task);
+
+        boolean[] finished = {false};
+        helper.onEachTick(() -> {
+            if (finished[0]) {
+                return;
+            }
+            AgentDecisionLoop.runExecutionPass(level);
+            BoardTask current = boardTaskByKey(level, task.key());
+            if (current != null && current.status() == BoardTask.Status.DONE) {
+                finished[0] = true;
+                helper.assertTrue(level.getBlockState(anchor).is(Blocks.STONE),
+                        "the floating anchor cell should be built from the staging ground");
+                cleanup(level, agent, current);
+                helper.succeed();
+            } else if (current != null && current.status() == BoardTask.Status.FAILED) {
+                helper.fail("floating-anchor build must stage, not fail: " + current);
+            }
+        });
+    }
+
+    @GameTest(template = "empty", batch = "agentsBuildStaging", timeoutTicks = 600)
+    public static void materialsShortParksTaskInKnowledgeLedger(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        dirtPlatform(helper);
+        BlueprintLibrary.INSTANCE.registerForTest(new Blueprint("wartledger", new Vec3i(1, 1, 1), List.of(
+                new Blueprint.Placement("minecraft:stone", new BlockPos(0, 0, 0)))));
+
+        BlockPos anchor = helper.absolutePos(new BlockPos(6, 1, 6));
+        WorkshopAgentEntity agent = spawnAgent(helper, new BlockPos(5, 2, 5));
+        // no chest and an empty inventory — the palette item is unobtainable
+
+        BoardTask task = BuildQueue.enqueue(level, "wartledger", anchor);
+        helper.assertTrue(task != null, "build task should be raised");
+        claimFor(helper, level, agent, task);
+
+        // One pass parks the task: staging reached, withdraw finds nothing, firstShortItem
+        // fires. Asserted atomically in one body — a blocked task is also invisible to the
+        // cross-batch production decide, so nothing can pick it up mid-assert.
+        AgentDecisionLoop.runExecutionPass(level);
+        BoardTask parked = boardTaskByKey(level, task.key());
+        helper.assertTrue(parked != null && parked.status() == BoardTask.Status.OPEN
+                        && parked.claimantUuid() == null,
+                "materials-short build must be released OPEN, not failed: " + parked);
+        List<AgentKnowledge.MaterialNeed> needs = AgentWorldData.knowledge(level).blockedNeeds(task.id());
+        helper.assertTrue(needs.size() == 1
+                        && "minecraft:stone".equals(needs.get(0).itemId())
+                        && needs.get(0).quantityNeeded() == 1
+                        && "BLOCKED".equals(needs.get(0).status()),
+                "ledger should hold the stone deficit: " + needs);
+        helper.assertTrue(AgentDecisionLoop.openTasks(level, AgentWorldData.board(level)).stream()
+                        .noneMatch(open -> open.key().equals(task.key())),
+                "a blocked task must not be claimable via openTasks");
+
+        // Restock the station chest, re-check, reclaim — the build then completes.
+        helper.setBlock(new BlockPos(4, 1, 6), Blocks.CHEST);
+        stockChest(helper, new BlockPos(4, 1, 6), new ItemStack(Items.STONE, 1));
+        int resolved = AgentWorldData.knowledge(level).recheckBlocked(level, AgentWorldData.board(level),
+                level.getGameTime());
+        helper.assertTrue(resolved == 1 && AgentWorldData.knowledge(level).blockedNeeds(task.id()).isEmpty(),
+                "restock should resolve the deficit: resolved=" + resolved);
+        claimFor(helper, level, agent, parked);
+
+        boolean[] finished = {false};
+        helper.onEachTick(() -> {
+            if (finished[0]) {
+                return;
+            }
+            AgentDecisionLoop.runExecutionPass(level);
+            BoardTask current = boardTaskByKey(level, task.key());
+            if (current != null && current.status() == BoardTask.Status.DONE) {
+                finished[0] = true;
+                helper.assertTrue(level.getBlockState(anchor).is(Blocks.STONE),
+                        "the restocked build should complete");
+                cleanup(level, agent, current);
+                helper.succeed();
+            } else if (current != null && current.status() == BoardTask.Status.FAILED) {
+                helper.fail("restocked build must not fail: " + current);
+            }
+        });
     }
 
     // --- COMFORT_SHELTER executor ---------------------------------------------------

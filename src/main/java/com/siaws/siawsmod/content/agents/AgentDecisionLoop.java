@@ -22,6 +22,7 @@ import com.siaws.siawsmod.content.agents.build.BuildCard;
 import com.siaws.siawsmod.content.agents.build.BuildCards;
 import com.siaws.siawsmod.content.agents.build.BuildQueue;
 import com.siaws.siawsmod.content.agents.build.BuildQueue.BuildJob;
+import com.siaws.siawsmod.content.agents.knowledge.AgentKnowledge;
 import com.siaws.siawsmod.content.agents.pool.AgentDecisionPool;
 import com.siaws.siawsmod.content.agents.pool.PoolEntry;
 import com.siaws.siawsmod.content.agents.tasks.BoardTask;
@@ -81,7 +82,13 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
  * counts as stuck, motion is not progress) releases its claim, and repeated unroutable
  * releases terminal-fail the task (see {@link TaskBoard#UNREACHABLE_RELEASE_THRESHOLD}).
  * Suffocating blocks are never placed into the agent's own cell, and a suffocating agent
- * bails out of its task.
+ * bails out of its task. Builds work from a staging cell — the nearest standable cell to
+ * the anchor outside the remaining footprint — so an agent never entombs itself in the
+ * only air pocket of its own build and an anchor on unstandable ground no longer strands
+ * the walk. A build that runs short of materials is not failed: it is parked in the
+ * knowledge ledger ({@code block:mazons:…} → blocked, unclaimable) until the station
+ * chests near the anchor hold the remaining quantity (see
+ * {@link com.siaws.siawsmod.content.agents.knowledge.AgentKnowledge}).
  */
 public final class AgentDecisionLoop {
     /** After this many cycles without progress toward its goal, a claimed agent gives up (releases). */
@@ -95,6 +102,7 @@ public final class AgentDecisionLoop {
             -30_000_000, -4096, -30_000_000, 30_000_000, 4096, 30_000_000);
 
     private static int ticksUntilRun;
+    private static int ticksUntilLedgerRecheck;
     private static final Set<UUID> inFlightRequests = new HashSet<>();
     private static final Map<UUID, List<String>> pendingCitations = new HashMap<>();
     private static final Map<UUID, ProgressWatchdog> progressWatches = new HashMap<>();
@@ -118,8 +126,16 @@ public final class AgentDecisionLoop {
         if (decisionCycle) {
             ticksUntilRun = Config.AGENTS_DECISION_INTERVAL_SECONDS.get() * 20;
         }
+        boolean ledgerCycle = --ticksUntilLedgerRecheck <= 0;
+        if (ledgerCycle) {
+            ticksUntilLedgerRecheck = Config.AGENTS_KNOWLEDGE_RECHECK_SECONDS.get() * 20;
+        }
         for (ServerLevel level : event.getServer().getAllLevels()) {
             runExecutionPass(level);
+            if (ledgerCycle) {
+                AgentWorldData.knowledge(level).recheckBlocked(level, AgentWorldData.board(level),
+                        level.getGameTime());
+            }
             if (decisionCycle) {
                 runDecisions(level, key -> true);
             }
@@ -306,6 +322,7 @@ public final class AgentDecisionLoop {
         releaseCooldowns.clear();
         placeFailures.clear();
         ticksUntilRun = 0;
+        ticksUntilLedgerRecheck = 0;
     }
 
     /**
@@ -491,8 +508,13 @@ public final class AgentDecisionLoop {
      */
     public static List<BoardTask> openTasks(ServerLevel level, TaskBoard board) {
         List<BoardTask> open = new ArrayList<>();
+        AgentKnowledge knowledge = AgentWorldData.knowledge(level);
         for (BoardTask task : board.tasks()) {
             if (task.status() != BoardTask.Status.OPEN) {
+                continue;
+            }
+            // parked in the knowledge ledger (materials short) — unclaimable until restocked
+            if (knowledge.isBlocked(task.id())) {
                 continue;
             }
             // comfort deficits belong to a specific player — never claim one whose player is gone
@@ -785,16 +807,6 @@ public final class AgentDecisionLoop {
             agent.setCurrentTaskLabel("");
             return false;
         }
-        if (!isCloseEnough(agent, job.anchor())) {
-            AgentActivity.working(agent, task, "heading there");
-            navigate(agent, job.anchor());
-            if (isStuck(agent)) {
-                releaseForAgent(agent, board, task, now, "unroutable");
-                clearStuck(agent);
-                return false;
-            }
-            return true; // still walking
-        }
 
         List<Blueprint.Placement> placements = blueprint.placementsSortedForBuild();
         int placed = countAlreadyPlaced(level, job.anchor(), placements);
@@ -804,17 +816,58 @@ public final class AgentDecisionLoop {
             return false;
         }
 
-        int toPlace = Config.AGENTS_PLACE_PER_CYCLE.get();
-        int windowEnd = Math.min(placed + toPlace, placements.size());
-        for (int i = placed; i < windowEnd; i++) {
-            Blueprint.Placement upcoming = placements.get(i);
-            Block upcomingBlock = BuiltInRegistries.BLOCK.get(ResourceLocation.tryParse(upcoming.blockId()));
-            if (upcomingBlock != null && !hasItem(agent, upcomingBlock.asItem())) {
-                AgentActivity.working(agent, task, "fetching materials");
-                withdrawOnce(level, agent, job.anchor(), neededMaterials(placements, placed));
+        // Staging cell (live 2026-10-22 fixes): the agent works from the nearest standable
+        // cell to the anchor OUTSIDE the remaining footprint. The old walk targeted the
+        // anchor corner itself — it stranded builds on cliff tops (never within 2 blocks in
+        // 3D) and parked the agent inside the footprint, where the entomb guard skipped the
+        // agent's own cells every pass and the build could never complete.
+        Set<BlockPos> remainingCells = new HashSet<>();
+        for (int i = placed; i < placements.size(); i++) {
+            remainingCells.add(job.anchor().offset(placements.get(i).rel()));
+        }
+        BlockPos staging = nearestStagingCell(level, job.anchor(), remainingCells, STAGING_SEARCH_RADIUS);
+        if (staging == null) {
+            // No standable ground near the anchor — the world makes the task impossible as
+            // it stands. Same unroutable path as the stuck watchdog: three releases
+            // terminal-fail the task instead of holding the claim forever.
+            AgentActivity.working(agent, task, "no staging ground");
+            releaseForAgent(agent, board, task, now, "unroutable");
+            return false;
+        }
+        boolean boxedIn = false;
+        for (BlockPos cell : remainingCells) {
+            if (placementIntersectsEntity(agent, cell)) {
+                boxedIn = true; // the agent's body sits inside the remaining footprint
                 break;
             }
         }
+        if (boxedIn || !isCloseEnough(agent, staging)) {
+            // Self-extrication (live 2026-10-22): placement only runs with a body clear
+            // of the blueprint, so every remaining cell — including the ones the agent
+            // stood in — is placeable. An agent parked inside the footprint with a
+            // staging cell one block away must still physically step out first.
+            AgentActivity.working(agent, task, boxedIn ? "stepping out" : "heading there");
+            navigate(agent, staging);
+            if (isStuck(agent)) {
+                releaseForAgent(agent, board, task, now, "unroutable");
+                clearStuck(agent);
+                return false;
+            }
+            return true; // still walking
+        }
+
+        // Materials: withdraw everything still needed, then park the task in the knowledge
+        // ledger when short. Not a failure — blocked tasks sit unclaimable until the ledger
+        // re-check sees the station chests restocked (or the remaining cells got placed).
+        Map<String, Integer> needed = neededMaterials(placements, placed);
+        withdrawOnce(level, agent, job.anchor(), needed);
+        String shortItem = firstShortItem(agent, needed);
+        if (shortItem != null) {
+            blockForMaterials(level, board, agent, task, job, shortItem, placements, placed, now);
+            return false;
+        }
+
+        int toPlace = Config.AGENTS_PLACE_PER_CYCLE.get();
         for (int i = placed; i < placements.size() && toPlace > 0; i++) {
             Blueprint.Placement placement = placements.get(i);
             BlockPos target = job.anchor().offset(placement.rel());
@@ -840,15 +893,15 @@ public final class AgentDecisionLoop {
                 continue;
             }
             if (placementEntombsAgent(level, block.defaultBlockState(), agent, target)) {
-                // The blueprint wants a suffocating block where the agent stands — placing it
-                // would entomb the agent (live suffocation death, 12:06:57). Skip; the agent
-                // drifts off the cell (random stroll) and a later cycle places it.
+                // The blueprint wants a suffocating block where the agent stands. The staging
+                // cell is chosen outside the remaining footprint, so this only fires when the
+                // agent drifted back into the footprint — skip this pass; the next pass walks
+                // it back out to the staging cell before placing.
                 SiasWorkshop.LOGGER.warn("[AgentDecisionLoop] skipping placement into agent's own cell: {}", target);
                 continue;
             }
             if (!hasItem(agent, block.asItem())) {
-                board.fail(task.id(), agent.getUUID(), "missing_material:" + placement.blockId(), now, pool, poolMaxEntries);
-                agent.setCurrentTaskLabel("");
+                blockForMaterials(level, board, agent, task, job, placement.blockId(), placements, i, now);
                 return false;
             }
             AgentActivity.working(agent, task, "placing");
@@ -862,6 +915,76 @@ public final class AgentDecisionLoop {
             }
         }
         return true;
+    }
+
+    /** How far from the anchor the staging-cell search looks for standable ground. */
+    private static final int STAGING_SEARCH_RADIUS = 6;
+
+    /**
+     * The cell the build executor works from: the air cell with rigid support below nearest
+     * to {@code anchor} whose cell and head cell are not in {@code reservedCells} (the
+     * remaining footprint — the agent never stages inside its own blueprint). Null when no
+     * standable ground exists within {@code radius}. Public: pinned by gametests.
+     */
+    @Nullable
+    public static BlockPos nearestStagingCell(ServerLevel level, BlockPos anchor, Set<BlockPos> reservedCells,
+            int radius) {
+        BlockPos best = null;
+        int bestDist = Integer.MAX_VALUE;
+        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+        for (int dy = -radius; dy <= radius; dy++) {
+            for (int dx = -radius; dx <= radius; dx++) {
+                for (int dz = -radius; dz <= radius; dz++) {
+                    cursor.set(anchor.getX() + dx, anchor.getY() + dy, anchor.getZ() + dz);
+                    if (reservedCells.contains(cursor) || reservedCells.contains(cursor.above())) {
+                        continue;
+                    }
+                    if (!level.getBlockState(cursor).isAir()
+                            || !Block.canSupportRigidBlock(level, cursor.below())) {
+                        continue;
+                    }
+                    int dist = cursor.distManhattan(anchor);
+                    if (dist < bestDist
+                            || (dist == bestDist && best != null && cursor.getY() > best.getY())) {
+                        best = new BlockPos(cursor);
+                        bestDist = dist;
+                    }
+                }
+            }
+        }
+        return best;
+    }
+
+    /** The first palette item the agent still needs but does not hold in sufficient count, or null. */
+    @Nullable
+    private static String firstShortItem(WorkshopAgentEntity agent, Map<String, Integer> needed) {
+        for (Map.Entry<String, Integer> entry : needed.entrySet()) {
+            Item item = BuiltInRegistries.ITEM.get(ResourceLocation.tryParse(entry.getKey()));
+            if (item != Items.AIR && countItem(agent, item) < entry.getValue()) {
+                return entry.getKey();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Parks a materials-short build in the knowledge ledger instead of failing it (live
+     * 2026-10-22: the user restocks the station chests today; a future gather/mine/trade
+     * surface resolves the same entries). Records the deficit, then releases the claim —
+     * the blocked task is unclaimable until the ledger re-check resolves it.
+     */
+    private static void blockForMaterials(ServerLevel level, TaskBoard board, WorkshopAgentEntity agent,
+            BoardTask task, BuildJob job, String itemId, List<Blueprint.Placement> placements,
+            int fromIndex, long now) {
+        int quantity = 0;
+        for (int i = fromIndex; i < placements.size(); i++) {
+            if (placements.get(i).blockId().equals(itemId)) {
+                quantity++;
+            }
+        }
+        AgentWorldData.knowledge(level).recordBlock(task, job, itemId, quantity, now);
+        AgentActivity.working(agent, task, "materials short: " + itemId);
+        releaseForAgent(agent, board, task, now, null);
     }
 
     /** Placement give-up: consecutive failed/obstructed cycles on one cell before the task terminal-fails. */

@@ -161,5 +161,12 @@ public class Config {
                     "outside the guard and the task can never execute.")
             .defineInRange("agents.guardRadius", 32, 4, 128);
 
+    public static final ModConfigSpec.IntValue AGENTS_KNOWLEDGE_RECHECK_SECONDS = BUILDER
+            .comment("How often the agent knowledge ledger re-checks material-blocked build tasks",
+                    "against the station chests near their anchors (seconds). Between checks a blocked",
+                    "task is unclaimable; when the chests hold the missing materials the block resolves",
+                    "and the task re-opens for claiming.")
+            .defineInRange("agents.knowledgeRecheckSeconds", 60, 5, 600);
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 }

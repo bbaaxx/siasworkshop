@@ -1,7 +1,7 @@
 ---
 id: "post-polish-batch-kev-coverage-recalibration-comfort-shelter-executor-mdocs-graph-hygiene"
 title: "Post-polish batch: kev coverage recalibration, COMFORT_SHELTER executor, mdocs graph hygiene"
-status: "active"
+status: "done"
 created: "2026-10-21"
 updated: "2026-10-21"
 owner: "coordinator"
@@ -90,6 +90,7 @@ Three follow-ups agreed 2026-10-21 after the executor-wart polish shipped:
       tap-import/spike/corpus/probe/calibration); live calibrated probe vs kev
       confirms the artifact end-to-end; mdocs valid=true clean=true warnings=0,
       index consistent. kev server stopped after data collection.
+- [2026-10-21T05:39:26.728Z] Marked done via mdocs command
 
 ## Artifacts
 

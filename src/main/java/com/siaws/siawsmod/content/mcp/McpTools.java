@@ -11,6 +11,7 @@ import com.siaws.siawsmod.content.agents.AgentDecisionLoop;
 import com.siaws.siawsmod.content.agents.AgentObservation;
 import com.siaws.siawsmod.content.agents.AgentWorldData;
 import com.siaws.siawsmod.content.agents.WorkshopAgentEntity;
+import com.siaws.siawsmod.content.agents.knowledge.AgentKnowledge;
 import com.siaws.siawsmod.content.agents.tasks.BoardTask;
 import com.siaws.siawsmod.content.agents.tasks.TaskBoard;
 
@@ -31,7 +32,8 @@ public final class McpTools {
     private static final String[][] TOOLS = {
             {"observe_self", "observe", "Read-only: this agent's compact situation snapshot.",
                     "agent"},
-            {"observe_board", "observe", "Read-only: the shared task board — open tasks with exact claim keys. "
+            {"observe_board", "observe", "Read-only: the shared task board — open tasks with exact claim keys, "
+                    + "plus blocked_tasks (builds parked in the knowledge ledger, unclaimable until restocked). "
                     + "Pass agent to hide that agent's cooling-down (recently released) tasks.",
                     "agent?"},
             {"claim", "effect", "Start work on an OPEN TASK; hands (walk, place, light, build) then run automatically.",
@@ -133,6 +135,28 @@ public final class McpTools {
             }
         }
         result.add("open_tasks", lines);
+        // Blocked builds stay visible but unclaimable: the ledger is the agents' shared
+        // record of what they need, so the model can plan around it (e.g. tell the player).
+        JsonArray blocked = new JsonArray();
+        for (ServerLevel level : server.getAllLevels()) {
+            TaskBoard board = AgentWorldData.board(level);
+            AgentKnowledge knowledge = AgentWorldData.knowledge(level);
+            for (BoardTask task : board.tasks()) {
+                if (task.status() != BoardTask.Status.OPEN) {
+                    continue;
+                }
+                List<AgentKnowledge.MaterialNeed> blockedNeeds = knowledge.blockedNeeds(task.id());
+                if (blockedNeeds.isEmpty()) {
+                    continue;
+                }
+                StringBuilder line = new StringBuilder(task.key() + " — blocked on materials:");
+                for (AgentKnowledge.MaterialNeed need : blockedNeeds) {
+                    line.append(" ").append(need.itemId()).append(" x").append(need.quantityNeeded());
+                }
+                blocked.add(line.toString());
+            }
+        }
+        result.add("blocked_tasks", blocked);
         return result;
     }
 
@@ -154,6 +178,10 @@ public final class McpTools {
             String key = args.get("task").getAsString();
             if (AgentDecisionLoop.inReleaseCooldown(agent.getUUID(), key, now)) {
                 return reject("task '" + key + "' is cooling down after a recent release");
+            }
+            BoardTask active = board.activeTask(key);
+            if (active != null && AgentWorldData.knowledge(level).isBlocked(active.id())) {
+                return reject("task '" + key + "' is blocked on materials (see observe_board blocked_tasks)");
             }
             target = open.stream().filter(task -> task.key().equals(key)).findFirst().orElse(null);
             if (target == null) {
