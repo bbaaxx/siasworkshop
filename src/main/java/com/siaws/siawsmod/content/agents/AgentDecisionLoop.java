@@ -24,6 +24,7 @@ import com.siaws.siawsmod.content.agents.build.BuildQueue;
 import com.siaws.siawsmod.content.agents.build.BuildQueue.BuildJob;
 import com.siaws.siawsmod.content.agents.knowledge.AgentKnowledge;
 import com.siaws.siawsmod.content.agents.pool.AgentDecisionPool;
+import com.siaws.siawsmod.content.agents.primitives.BreakSupport;
 import com.siaws.siawsmod.content.agents.pool.PoolEntry;
 import com.siaws.siawsmod.content.agents.tasks.BoardTask;
 import com.siaws.siawsmod.content.agents.tasks.ComfortDetectors;
@@ -882,10 +883,18 @@ public final class AgentDecisionLoop {
                 continue;
             }
             if (!current.isAir()) {
-                // Non-replaceable obstruction (natural leaves, a player-placed block): v1 never
-                // breaks blocks, so without a give-up this cell would be retried forever —
-                // the live 2026-10-20 episode. After PLACE_GIVE_UP_CYCLES consecutive cycles
-                // the task terminal-fails instead.
+                // Obstructed cell: try the break primitive first (the live 2026-10-20 leaves
+                // episode — v1 used to retry until the 20-cycle give-up; breaking clears it
+                // when tooling allows). Unbreakable-by-policy cells fall through to the
+                // existing give-up below.
+                if (Config.AGENTS_BREAKING_ENABLED.get() && BreakSupport.canBreak(level, agent, target)) {
+                    AgentActivity.working(agent, task, "clearing obstruction");
+                    BreakSupport.breakBlock(level, agent, target);
+                    continue;
+                }
+                // Non-replaceable obstruction (natural leaves, a player-placed block): without a
+                // give-up this cell would be retried forever — the live 2026-10-20 episode.
+                // After PLACE_GIVE_UP_CYCLES consecutive cycles the task terminal-fails instead.
                 if (recordPlaceFailure(board, task, failureKey, target, now, pool, poolMaxEntries)) {
                     agent.setCurrentTaskLabel("");
                     return false;

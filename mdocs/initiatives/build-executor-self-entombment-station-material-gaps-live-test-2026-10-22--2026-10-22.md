@@ -1,7 +1,7 @@
 ---
 id: "build-executor-self-entombment-station-material-gaps-live-test-2026-10-22"
 title: "Build executor: self-entombment + station/material gaps (live test 2026-10-22)"
-status: "active"
+status: "done"
 created: "2026-10-22"
 updated: "2026-10-22"
 owner: ""

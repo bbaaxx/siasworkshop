@@ -168,5 +168,14 @@ public class Config {
                     "and the task re-opens for claiming.")
             .defineInRange("agents.knowledgeRecheckSeconds", 60, 5, 600);
 
+    public static final ModConfigSpec.BooleanValue AGENTS_BREAKING_ENABLED = BUILDER
+            .comment("Enable the break primitive: agents may break blocks within agents.guardRadius",
+                    "of themselves, following vanilla tool-tier rules (NEEDS_*_TOOL blocks require the",
+                    "right tiered tool; the LLM gets a needs_tool:<tier>_<kind> reason to plan around).",
+                    "Containers, beds, and other block entities never break. Drops land in the agent",
+                    "inventory. Composable by the model via the break_block MCP tool; the BUILD",
+                    "executor also uses it to clear blueprint obstructions before giving up.")
+            .define("agents.breaking.enabled", true);
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 }

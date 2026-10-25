@@ -2,11 +2,12 @@
 
 - **Agent embodiment + world-state observation design** (done) — agent-embodiment-observation-2026-10-13--2026-10-14.md — 2026-10-14 — [design, llm, agents, entities, observation]
 - **Agent shared ledger page (proper recovery)** (done) — agent-shared-ledger-setup-2026-10-14--2026-10-14.md — 2026-10-14 — [tooling, agents, coordination, process]
+- **Agents action-surface expansion: hands, materials, economy (roadmap)** (active) — agents-action-surface-expansion-hands-materials-economy-roadmap--2026-10-23.md — 2026-10-23 — []
 - **Agents v1: shared decision pool + task board + comfort goals** (complete) — agents-v1-decision-pool-goals-2026-10-14--2026-10-14.md — 2026-10-14 — [agents, decision-pool, goals, implementation]
 - **Agents v1: LLM client + build knowledge** (complete) — agents-v1-llm-build-knowledge-2026-10-14--2026-10-14.md — 2026-10-14 — [agents, llm, build, implementation]
 - **Agents v1 spike: hybrid entity + observation snapshot** (done) — agents-v1-spike-entity-observation-2026-10-14--2026-10-14.md — 2026-10-14 — [agents, entities, observation, implementation, spike]
 - **Backport end-game tool recipes to 1.20.1 (final 1.20.x release)** (done) — backport-recipes-1-20-1--2026-10-10.md — 2026-10-10 — [backport, recipes, datagen, release]
-- **Build executor: self-entombment + station/material gaps (live test 2026-10-22)** (active) — build-executor-self-entombment-station-material-gaps-live-test-2026-10-22--2026-10-22.md — 2026-10-22 — []
+- **Build executor: self-entombment + station/material gaps (live test 2026-10-22)** (done) — build-executor-self-entombment-station-material-gaps-live-test-2026-10-22--2026-10-22.md — 2026-10-22 — [agents, build, knowledge, ledger]
 - **Cherry blossom villages (worldgen)** (done) — cherry-village-worldgen--2026-10-08.md — 2026-10-08 — []
 - **Cherry-theme villages (config-gated cosmetic option)** (done) — cherryfy-villages--2026-10-08.md — 2026-10-08 — []
 - **v1.0.1: compass pre-scan behavior + foundation consumption** (done) — compass-fix-foundation-consume--2026-10-09.md — 2026-10-09 — [bugfix, enhancement, release]

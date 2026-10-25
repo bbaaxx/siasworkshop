@@ -139,7 +139,9 @@ def decide(peer: ModPeer, model, model_tag: str, args: dict, mode: str,
         messages = [
             {"role": "system", "content":
                 "You control a Minecraft villager-agent. Observe the situation, then call exactly "
-                "one tool to decide: claim a task, rest, or say something."},
+                "one tool from the catalog to act: claim a task to put your hands to work, rest, "
+                "say something, or compose toward a goal with an effect tool (e.g. break_block "
+                "to clear or gather; its rejects tell you what you still need)."},
             {"role": "user", "content": "OBSERVATION:\n" + observation
              + "\n\nOPEN TASKS:\n" + ("\n".join("- " + l for l in open_lines) or "none")},
         ]
@@ -173,8 +175,8 @@ def decide(peer: ModPeer, model, model_tag: str, args: dict, mode: str,
         return {"decision": "error", "detail": f"bad_args:{tool}:{arg_err}"}
 
     exec_args = dict(call_args)
-    if tool in ("claim", "rest", "say"):
-        exec_args["agent"] = agent
+    if "agent" in catalog_tool.inputs.get("properties", {}):
+        exec_args.setdefault("agent", agent)
     outcome = call_mod_tool(peer, tool, exec_args)
     if tool == "claim":
         return {"decision": "claim", "task": outcome.get("claimed", ""), "detail": json.dumps(outcome)}

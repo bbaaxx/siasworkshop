@@ -143,6 +143,16 @@ S0_TOOLS: list[Tool] = [
                                 "player": {"type": "string"}, "msg": {"type": "string"}},
                  "required": ["player", "msg"]},
          args_hint="player=<name>, msg=<short text>"),
+    Tool(id="break.block", kind="effect",
+         description="Break the block at pos (agent-relative guard radius, vanilla tool-tier "
+                     "rules; drops go to the agent's inventory). Rejects teach the means: "
+                     "needs_tool:<tier>_<kind> (craft or withdraw the tool, then retry), "
+                     "too_far, protected, unbreakable.",
+         inputs={"type": "object",
+                 "properties": {"agent": {"type": "string"},
+                                "pos": {"type": "string"}},
+                 "required": ["pos"]},
+         args_hint="pos=<x,y,z>"),
 ]
 
 

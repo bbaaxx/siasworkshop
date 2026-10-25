@@ -4,7 +4,7 @@ title: "GameTest Setup Notes (NeoForge 1.21.1)"
 category: "setup"
 created: "2026-10-14"
 updated: "2026-10-14"
-related_initiatives: ["post-polish-batch-kev-coverage-recalibration-comfort-shelter-executor-mdocs-graph-hygiene", "agents-v1-spike-entity-observation--2026-10-14", "build-executor-self-entombment-station-material-gaps-live-test-2026-10-22"]
+related_initiatives: ["post-polish-batch-kev-coverage-recalibration-comfort-shelter-executor-mdocs-graph-hygiene", "agents-v1-spike-entity-observation--2026-10-14", "build-executor-self-entombment-station-material-gaps-live-test-2026-10-22", "agents-action-surface-expansion-hands-materials-economy-roadmap"]
 tags: ["gametest","testing","neoforge","tooling"]
 lifecycle: "stable"
 knowledge_type: "how-to"
@@ -165,6 +165,14 @@ Hard-won facts from wiring the first GameTests in this repo (agents v1 spike,
   `agent.moveTo(...)` and exercise placement (which is remote by design).
   Watch out: a "passing" walk-dependent test may be passing on worldgen luck
   (natural stone at the anchor cell counts as placed).
+- **A test that fails BEFORE its `agent.discard()` leaks the agent into every
+  later batch** (break-primitive slice, 2026-10-25): the unfiltered production
+  decide claims open tasks for the stray — symptoms appear in UNRELATED tests
+  ("our agent should hold the light claim", shelter roof cells missing, plain
+  timeouts) one or two batches LATER, and the failing set shifts run to run as
+  tick phases move. Wrap every spawned-agent test body in
+  `try { ... } finally { agent.discard(); }` — cleanup must run on the failure
+  path too.
 - **Build staging tests settle one block lower than spawned** (2026-10-22):
   outside the barrier shell the natural surface is a block lower than the
   template platform, so an agent spawned at rel y=1 rests with feet at rel

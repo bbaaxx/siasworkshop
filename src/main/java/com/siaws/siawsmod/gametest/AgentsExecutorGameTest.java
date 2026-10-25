@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+import com.google.gson.JsonObject;
 import com.siaws.siawsmod.content.agents.AgentDecisionLoop;
 import com.siaws.siawsmod.content.agents.AgentDecisionLoop.ProgressWatchdog;
 import com.siaws.siawsmod.content.agents.AgentWorldData;
@@ -14,9 +15,11 @@ import com.siaws.siawsmod.content.agents.build.Blueprint;
 import com.siaws.siawsmod.content.agents.build.BlueprintLibrary;
 import com.siaws.siawsmod.content.agents.build.BuildQueue;
 import com.siaws.siawsmod.content.agents.knowledge.AgentKnowledge;
+import com.siaws.siawsmod.content.agents.primitives.BreakSupport;
 import com.siaws.siawsmod.content.agents.tasks.BoardTask;
 import com.siaws.siawsmod.content.agents.tasks.ComfortDetectors;
 import com.siaws.siawsmod.content.agents.tasks.TaskBoard;
+import com.siaws.siawsmod.content.mcp.McpTools;
 import com.siaws.siawsmod.config.Config;
 import com.siaws.siawsmod.init.SiasWorkshopEntities;
 
@@ -272,7 +275,11 @@ public final class AgentsExecutorGameTest {
         BlueprintLibrary.INSTANCE.registerForTest(single);
 
         BlockPos anchor = helper.absolutePos(new BlockPos(4, 1, 4));
-        helper.setBlock(new BlockPos(4, 1, 4), Blocks.OAK_LEAVES); // blueprint cell blocked
+        // A PROTECTED cell (chest = block entity): the break primitive refuses, so the
+        // 20-cycle give-up path must still terminal-fail the task. (Pre-break era this
+        // test used leaves; leaves are agent-breakable now — the give-up class shrank
+        // but did not disappear.)
+        helper.setBlock(new BlockPos(4, 1, 4), Blocks.CHEST);
         WorkshopAgentEntity agent = spawnAgent(helper, new BlockPos(2, 1, 4)); // 2 blocks out: "arrived"
         agent.getInventory().setItem(0, new ItemStack(Items.STONE, 4));
 
@@ -292,13 +299,13 @@ public final class AgentsExecutorGameTest {
                 helper.assertTrue(current.failureReason() != null
                                 && current.failureReason().startsWith("obstructed:"),
                         "give-up reason should be obstructed:<pos>: " + current.failureReason());
-                helper.assertTrue(level.getBlockState(anchor).is(Blocks.OAK_LEAVES),
-                        "v1 never breaks blocks — the leaves must remain");
+                helper.assertTrue(level.getBlockState(anchor).is(Blocks.CHEST),
+                        "protected blocks must survive — agents never break containers");
                 cleanup(level, agent, current);
                 helper.succeed();
             }
         });
-        helper.runAfterDelay(199, () -> helper.fail("task never gave up on the obstructed cell"));
+        helper.runAfterDelay(199, () -> helper.fail("task never gave up on the protected obstruction"));
     }
 
     @GameTest(template = "empty", timeoutTicks = 200)
@@ -478,8 +485,7 @@ public final class AgentsExecutorGameTest {
     }
 
     @GameTest(template = "empty", batch = "agentsBuildStaging", timeoutTicks = 600)
-    public static void materialsShortParksTaskInKnowledgeLedger(GameTestHelper helper) {
-        ServerLevel level = helper.getLevel();
+    public static void materialsShortParksTaskInKnowledgeLedger(GameTestHelper helper) {        ServerLevel level = helper.getLevel();
         dirtPlatform(helper);
         BlueprintLibrary.INSTANCE.registerForTest(new Blueprint("wartledger", new Vec3i(1, 1, 1), List.of(
                 new Blueprint.Placement("minecraft:stone", new BlockPos(0, 0, 0)))));
@@ -698,6 +704,180 @@ public final class AgentsExecutorGameTest {
 
         level.getServer().getPlayerList().remove(player);
         helper.succeed();
+    }
+
+    // --- break primitive (action-surface slice 1, 2026-10-23) -----------------------
+
+    @GameTest(template = "empty", batch = "agentsBuildStaging", timeoutTicks = 400)
+    public static void breakingGuardrailsTeachReasons(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        dirtPlatform(helper);
+        BlockPos home = helper.absolutePos(new BlockPos(6, 1, 6));
+        WorkshopAgentEntity agent = spawnAgent(helper, new BlockPos(6, 2, 6)); // settles beside the cases
+        try {
+            BlockPos air = helper.absolutePos(new BlockPos(5, 1, 6));
+            BlockPos leaves = helper.absolutePos(new BlockPos(6, 1, 7));
+            BlockPos dirt = helper.absolutePos(new BlockPos(6, 1, 8));
+            BlockPos stone = helper.absolutePos(new BlockPos(7, 1, 6));
+            BlockPos ironOre = helper.absolutePos(new BlockPos(7, 1, 7));
+            BlockPos chest = helper.absolutePos(new BlockPos(7, 1, 8));
+            BlockPos far = helper.absolutePos(new BlockPos(40, 1, 6)); // beyond the 32-block guard radius
+            helper.setBlock(new BlockPos(6, 1, 7), Blocks.OAK_LEAVES);
+            helper.setBlock(new BlockPos(6, 1, 8), Blocks.DIRT);
+            helper.setBlock(new BlockPos(7, 1, 6), Blocks.STONE);
+            helper.setBlock(new BlockPos(7, 1, 7), Blocks.IRON_ORE);
+            helper.setBlock(new BlockPos(7, 1, 8), Blocks.CHEST);
+            helper.setBlock(new BlockPos(40, 1, 6), Blocks.DIRT);
+
+            helper.assertTrue(reason(agent, level, air).equals("no_block"),
+                    "air must refuse with no_block: " + reason(agent, level, air));
+            helper.assertTrue(reason(agent, level, far).equals("too_far"),
+                    "a block beyond the guard radius must refuse with too_far: " + reason(agent, level, far));
+            helper.assertTrue(reason(agent, level, chest).equals("protected"),
+                    "containers must refuse with protected: " + reason(agent, level, chest));
+            helper.assertTrue(reason(agent, level, leaves) == null,
+                    "leaves are hand-breakable: " + reason(agent, level, leaves));
+            helper.assertTrue(reason(agent, level, dirt) == null,
+                    "dirt is hand-breakable: " + reason(agent, level, dirt));
+            helper.assertTrue(reason(agent, level, stone) == null,
+                    "stone is hand-breakable (no drops without a pickaxe, vanilla-style): "
+                            + reason(agent, level, stone));
+            String oreVerdict = reason(agent, level, ironOre);
+            helper.assertTrue(oreVerdict != null && oreVerdict.startsWith("needs_tool:stone_"),
+                    "iron ore without any tool must ask for a stone pickaxe: " + oreVerdict);
+
+            // And with the tool anywhere in the inventory the primitive equips it and allows.
+            agent.getInventory().setItem(1, new ItemStack(Items.STONE_PICKAXE, 1));
+            helper.assertTrue(BreakSupport.evaluate(level, agent, ironOre).allowed(),
+                    "iron ore with a stone pickaxe in inventory must be allowed");
+            helper.assertTrue(agent.getMainHandItem().is(Items.STONE_PICKAXE),
+                    "the suitable tool must be swapped into the main hand: " + agent.getMainHandItem());
+            helper.succeed();
+        } finally {
+            // a leaked agent poisons LATER batches via the unfiltered production decide
+            agent.discard();
+        }
+    }
+
+    @GameTest(template = "empty", batch = "agentsBuildStaging", timeoutTicks = 400)
+    public static void breakingDropsLandInInventoryAndWearTool(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        dirtPlatform(helper);
+        WorkshopAgentEntity agent = spawnAgent(helper, new BlockPos(6, 2, 6));
+        try {
+            BlockPos dirt = helper.absolutePos(new BlockPos(6, 1, 7));
+            helper.setBlock(new BlockPos(6, 1, 7), Blocks.DIRT);
+            helper.assertTrue(BreakSupport.breakBlock(level, agent, dirt),
+                    "dirt must break by hand");
+            helper.assertTrue(level.getBlockState(dirt).isAir(), "the dirt cell must be air");
+            helper.assertTrue(countOf(agent, Items.DIRT) > 0,
+                    "the dirt drop must land in the agent's inventory");
+
+            BlockPos ore = helper.absolutePos(new BlockPos(7, 1, 7));
+            helper.setBlock(new BlockPos(7, 1, 7), Blocks.IRON_ORE);
+            agent.getInventory().setItem(1, new ItemStack(Items.STONE_PICKAXE, 1));
+            helper.assertTrue(BreakSupport.breakBlock(level, agent, ore),
+                    "iron ore must break once a suitable pickaxe is equipped");
+            helper.assertTrue(countOf(agent, Items.RAW_IRON) > 0,
+                    "the raw iron drop must land in the agent's inventory");
+            helper.assertTrue(agent.getMainHandItem().is(Items.STONE_PICKAXE)
+                            && agent.getMainHandItem().getMaxDamage() - agent.getMainHandItem().getDamageValue() == 130,
+                    "the used pickaxe must lose one durability: " + agent.getMainHandItem());
+            helper.succeed();
+        } finally {
+            // a leaked agent poisons LATER batches through the unfiltered production decide
+            agent.discard();
+        }
+    }
+
+    @GameTest(template = "empty", batch = "agentsBuildStaging", timeoutTicks = 400)
+    public static void buildClearsObstructionThenCompletes(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        dirtPlatform(helper);
+        BlueprintLibrary.INSTANCE.registerForTest(new Blueprint("wartclear", new Vec3i(1, 1, 1), List.of(
+                new Blueprint.Placement("minecraft:stone", new BlockPos(0, 0, 0)))));
+
+        BlockPos anchor = helper.absolutePos(new BlockPos(6, 1, 6));
+        helper.setBlock(new BlockPos(6, 1, 6), Blocks.OAK_LEAVES); // blueprint cell obstructed (the live leaves episode)
+        WorkshopAgentEntity agent = spawnAgent(helper, new BlockPos(5, 2, 5));
+        agent.getInventory().setItem(0, new ItemStack(Items.STONE, 1));
+
+        BoardTask task = BuildQueue.enqueue(level, "wartclear", anchor);
+        helper.assertTrue(task != null, "build task should be raised");
+        claimFor(helper, level, agent, task);
+
+        boolean[] finished = {false};
+        helper.onEachTick(() -> {
+            if (finished[0]) {
+                return;
+            }
+            AgentDecisionLoop.runExecutionPass(level);
+            BoardTask current = boardTaskByKey(level, task.key());
+            if (current != null && current.status() == BoardTask.Status.DONE) {
+                finished[0] = true;
+                helper.assertTrue(level.getBlockState(anchor).is(Blocks.STONE),
+                        "the executor must clear the leaves then place the blueprint block");
+                cleanup(level, agent, current);
+                helper.succeed();
+            } else if (current != null && current.status() == BoardTask.Status.FAILED) {
+                helper.fail("clearable obstruction must not fail the build: " + current);
+            }
+        });
+    }
+
+    @GameTest(template = "empty", batch = "agentsBuildStaging", timeoutTicks = 400)
+    public static void mcpBreakBlockToolActsAndTeaches(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        dirtPlatform(helper);
+        WorkshopAgentEntity agent = spawnAgent(helper, new BlockPos(6, 2, 6));
+        var server = helper.getLevel().getServer();
+
+        BlockPos leaves = helper.absolutePos(new BlockPos(6, 1, 7));
+        BlockPos ironOre = helper.absolutePos(new BlockPos(7, 1, 7));
+        BlockPos chest = helper.absolutePos(new BlockPos(7, 1, 8));
+        BlockPos far = helper.absolutePos(new BlockPos(40, 1, 6));
+        helper.setBlock(new BlockPos(6, 1, 7), Blocks.OAK_LEAVES);
+        helper.setBlock(new BlockPos(7, 1, 7), Blocks.IRON_ORE);
+        helper.setBlock(new BlockPos(7, 1, 8), Blocks.CHEST);
+        helper.setBlock(new BlockPos(40, 1, 6), Blocks.DIRT);
+
+        // Success: hand-breakable leaves.
+        JsonObject broke = McpTools.dispatch(server, "break_block",
+                args("agent", agent.getUUID().toString(), "pos", leaves.getX() + "," + leaves.getY() + "," + leaves.getZ()));
+        helper.assertTrue(broke.has("broke"), "leaves should break: " + broke);
+        helper.assertTrue(level.getBlockState(leaves).isAir(), "the cell must be air after the break");
+
+        // Teaching rejects: the model reads these to plan the means.
+        JsonObject needsTool = McpTools.dispatch(server, "break_block",
+                args("agent", agent.getUUID().toString(), "pos", ironOre.getX() + "," + ironOre.getY() + "," + ironOre.getZ()));
+        helper.assertTrue(needsTool.has("reject") && needsTool.get("reject").getAsString().contains("needs_tool:"),
+                "iron ore without a tool must teach needs_tool: " + needsTool);
+        JsonObject protectedReject = McpTools.dispatch(server, "break_block",
+                args("agent", agent.getUUID().toString(), "pos", chest.getX() + "," + chest.getY() + "," + chest.getZ()));
+        helper.assertTrue(protectedReject.has("reject") && protectedReject.get("reject").getAsString().contains("protected"),
+                "chests must reject as protected: " + protectedReject);
+        JsonObject tooFar = McpTools.dispatch(server, "break_block",
+                args("agent", agent.getUUID().toString(), "pos", far.getX() + "," + far.getY() + "," + far.getZ()));
+        helper.assertTrue(tooFar.has("reject") && tooFar.get("reject").getAsString().contains("too_far"),
+                "distant blocks must reject as too_far: " + tooFar);
+        JsonObject badArgs = McpTools.dispatch(server, "break_block",
+                args("agent", agent.getUUID().toString(), "pos", "not-a-pos"));
+        helper.assertTrue(badArgs.has("reject"), "malformed pos must reject: " + badArgs);
+
+        agent.discard();
+        helper.succeed();
+    }
+
+    private static String reason(WorkshopAgentEntity agent, ServerLevel level, BlockPos pos) {
+        return BreakSupport.evaluate(level, agent, pos).reason();
+    }
+
+    private static JsonObject args(String... pairs) {
+        JsonObject obj = new JsonObject();
+        for (int i = 0; i + 1 < pairs.length; i += 2) {
+            obj.addProperty(pairs[i], pairs[i + 1]);
+        }
+        return obj;
     }
 
     // --- helpers ----------------------------------------------------------------

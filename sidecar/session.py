@@ -160,11 +160,13 @@ def run_decision(mode: str, model, model_tag: str, client: McpClient,
             _parse_coverage(decision, candidate.get("coverage"))
 
     elif mode == "mcp-native":
-        # Parity: only the decision effect set is offered natively; observation is
+        # Parity: only the board-decision effect set is offered natively; observation is
         # pre-injected above (multi-step observe-via-tools is S2+ behavior — in the
         # cloud test the model spontaneously called observe_board 2/3 times when it
-        # was offered, which is good instinct but not a decision-shaped reply).
-        decision_tools = [t for t in catalog.S0_TOOLS if t.kind == "effect"]
+        # was offered, which is good instinct but not a decision-shaped reply). The
+        # composition primitives (break_block, …) are deliberately NOT in the tier0
+        # instrument: tier0 measures claim-choice position bias, a different axis.
+        decision_tools = [t for t in catalog.S0_TOOLS if t.wire in ("claim", "rest", "say")]
         messages = [
             {"role": "system", "content":
                 "You control a Minecraft villager-agent. Observe the situation, then call exactly "

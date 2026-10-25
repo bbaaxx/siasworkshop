@@ -4,7 +4,7 @@ title: "Agent Knowledge System (in-game shared ledger)"
 category: "reference"
 created: "2026-10-22"
 updated: "2026-10-22"
-related_initiatives: ["build-executor-self-entombment-station-material-gaps-live-test-2026-10-22"]
+related_initiatives: ["build-executor-self-entombment-station-material-gaps-live-test-2026-10-22", "agents-action-surface-expansion-hands-materials-economy-roadmap"]
 tags: ["agents","knowledge","ledger","build","materials","design"]
 lifecycle: "evolving"
 knowledge_type: "design"

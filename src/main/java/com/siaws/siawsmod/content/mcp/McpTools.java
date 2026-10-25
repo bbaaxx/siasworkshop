@@ -12,9 +12,11 @@ import com.siaws.siawsmod.content.agents.AgentObservation;
 import com.siaws.siawsmod.content.agents.AgentWorldData;
 import com.siaws.siawsmod.content.agents.WorkshopAgentEntity;
 import com.siaws.siawsmod.content.agents.knowledge.AgentKnowledge;
+import com.siaws.siawsmod.content.agents.primitives.BreakSupport;
 import com.siaws.siawsmod.content.agents.tasks.BoardTask;
 import com.siaws.siawsmod.content.agents.tasks.TaskBoard;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 
@@ -38,6 +40,10 @@ public final class McpTools {
                     "agent?"},
             {"claim", "effect", "Start work on an OPEN TASK; hands (walk, place, light, build) then run automatically.",
                     "agent, task?"},
+            {"break_block", "effect", "Break the block at pos (agent-relative guard radius, vanilla tool-tier rules; "
+                    + "drops go to the agent's inventory). Rejects teach the means: needs_tool:<tier>_<kind> "
+                    + "(craft or withdraw the tool, then retry), too_far, protected, unbreakable.",
+                    "agent, pos"},
             {"rest", "effect", "Deliberately idle this cycle.", "agent"},
             {"say", "effect", "Speak one short line to a player (shows in their chat).", "agent, player, msg"},
     };
@@ -98,10 +104,49 @@ public final class McpTools {
             case "observe_self" -> observeSelf(server, args);
             case "observe_board" -> observeBoard(server, args);
             case "claim" -> claim(server, args);
+            case "break_block" -> breakBlock(server, args);
             case "rest" -> rest(server, args);
             case "say" -> say(server, args);
             default -> reject("unknown tool '" + name + "'");
         };
+    }
+
+    private static JsonObject breakBlock(MinecraftServer server, JsonObject args) {
+        WorkshopAgentEntity agent = agentOf(server, args);
+        if (agent == null) {
+            return reject("unknown agent");
+        }
+        if (!stringArg(args, "pos")) {
+            return reject("bad args for break_block: need string pos as x,y,z");
+        }
+        String posText = args.get("pos").getAsString();
+        BlockPos pos = parsePos(posText);
+        if (pos == null) {
+            return reject("bad pos '" + posText + "': expected x,y,z");
+        }
+        ServerLevel level = (ServerLevel) agent.level();
+        BreakSupport.BreakVerdict verdict = BreakSupport.evaluate(level, agent, pos);
+        if (!verdict.allowed()) {
+            return reject("cannot break '" + posText + "': " + verdict.reason());
+        }
+        BreakSupport.breakBlock(level, agent, pos);
+        JsonObject result = new JsonObject();
+        result.addProperty("broke", posText);
+        return result;
+    }
+
+    @javax.annotation.Nullable
+    private static BlockPos parsePos(String value) {
+        String[] parts = value.split(",");
+        if (parts.length != 3) {
+            return null;
+        }
+        try {
+            return new BlockPos(Integer.parseInt(parts[0].trim()),
+                    Integer.parseInt(parts[1].trim()), Integer.parseInt(parts[2].trim()));
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 
     private static JsonObject observeSelf(MinecraftServer server, JsonObject args) {
