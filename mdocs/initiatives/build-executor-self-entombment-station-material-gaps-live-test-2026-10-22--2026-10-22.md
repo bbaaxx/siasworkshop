@@ -6,7 +6,7 @@ created: "2026-10-22"
 updated: "2026-10-22"
 owner: ""
 tags: ["agents", "build", "knowledge", "ledger"]
-related_wiki: ["reference/agent-knowledge-system", "setup/gametest-notes-1-21-1"]
+related_wiki: ["reference/agent-knowledge-system", "setup/gametest-notes-1-21-1", "setup/session-handoff-2026-10-26"]
 ---
 
 ## Objective

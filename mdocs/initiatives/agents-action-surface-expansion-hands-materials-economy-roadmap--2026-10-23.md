@@ -6,7 +6,7 @@ created: "2026-10-23"
 updated: "2026-10-23"
 owner: ""
 tags: ["agents", "roadmap", "actions", "knowledge", "mcp"]
-related_wiki: ["reference/agent-knowledge-system", "reference/mcp-pattern-tree-design", "setup/gametest-notes-1-21-1"]
+related_wiki: ["reference/agent-knowledge-system", "reference/mcp-pattern-tree-design", "setup/gametest-notes-1-21-1", "setup/session-handoff-2026-10-26"]
 ---
 
 ## Objective
@@ -86,6 +86,16 @@ adds resolution paths for parked deficits AND records what agents learn.
 11. New AgentKnowledge entry types as phases land: SOURCE_DISCOVERED,
     RECIPE_LEARNED, STOCK_LEVELS, TRADE_ROUTE. Retrieval injects relevant
     knowledge at decide time (the "shared knowledge system" the user asked for).
+
+## Resume here (for the next agent)
+
+Canonical session state lives in `setup/session-handoff-2026-10-26`
+(reading order, resume order, traps, environment facts). Next slice: **P1
+gather + craft primitives** — shapes mirror slice 1 (primitive + guardrails +
+teaching rejects + MCP effect tool + sidecar catalog entry + gametests in the
+`agentsBuildStaging` batch with try/finally discards + dirt platforms +
+simulated walks). See "User direction 2026-10-23" — the LLM composes; the mod
+validates and executes.
 
 ## Slice 1 progress log (breaking primitive — 2026-10-23)
 

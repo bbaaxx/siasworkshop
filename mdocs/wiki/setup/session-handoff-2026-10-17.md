@@ -1,6 +1,6 @@
 ---
 id: "session-handoff-2026-10-17"
-title: "Session Handoff — 2026-10-19 (research initiative COMPLETE: corpus Q4 + Tier-1 measured + migration recommendation; next: integration discussion / executor warts)"
+title: "Session Handoff — 2026-10-19 (research initiative COMPLETE; SUPERSEDED by session-handoff-2026-10-26)"
 category: "setup"
 created: "2026-10-17"
 updated: "2026-10-20"
@@ -12,7 +12,11 @@ confidence: "high"
 source_initiatives: []
 ---
 
-# Session handoff — read this first (current)
+# Session handoff — 2026-10-19 revision (superseded; current: session-handoff-2026-10-26)
+
+> Superseded by `session-handoff-2026-10-26` (2026-10-22 build-executor fixes
+> + knowledge ledger; 2026-10-25 break primitive; active roadmap: agents
+> action-surface expansion). Kept for the research-era record.
 
 Canonical handoff as of 2026-10-19 (fourth revision; v3 was 2026-10-17 late
 evening). Revision history: v1 "S1 live-verified; dev pause for research"

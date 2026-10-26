@@ -6,7 +6,7 @@ created: "2026-10-21"
 updated: "2026-10-21"
 owner: "coordinator"
 tags: ["agents","sidecar","kev","comfort","mdocs","hygiene"]
-related_wiki: ["setup/test-run-protocol-2026-10-20","reference/mcp-migration-recommendation","reference/local-llm-feasibility","setup/agent-shared-ledger","setup/gametest-notes-1-21-1"]
+related_wiki: ["setup/test-run-protocol-2026-10-20","reference/mcp-migration-recommendation","reference/local-llm-feasibility","setup/agent-shared-ledger","setup/gametest-notes-1-21-1", "setup/session-handoff-2026-10-26"]
 ---
 
 ## Objective

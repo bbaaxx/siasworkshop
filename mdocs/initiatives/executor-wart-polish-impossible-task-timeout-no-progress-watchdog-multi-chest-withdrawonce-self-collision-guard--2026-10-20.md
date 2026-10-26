@@ -6,7 +6,7 @@ created: "2026-10-20"
 updated: "2026-10-20"
 owner: "coordinator"
 tags: ["agents","executor","polish"]
-related_wiki: ["setup/agent-shared-ledger", "setup/session-handoff-2026-10-17", "setup/test-run-protocol-2026-10-20"]
+related_wiki: ["setup/agent-shared-ledger", "setup/session-handoff-2026-10-17", "setup/test-run-protocol-2026-10-20", "setup/session-handoff-2026-10-26"]
 graduated: "2026-10-20"
 ---
 
