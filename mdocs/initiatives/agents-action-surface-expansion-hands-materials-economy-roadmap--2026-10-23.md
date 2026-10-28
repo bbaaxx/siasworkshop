@@ -127,6 +127,14 @@ validates and executes.
   light-claim contested); (3) tier0 native instrumentation keeps the
   board-decision set {claim, rest, say} — break_block is production surface,
   not a tier0 measured axis.
+- LIVE TEST 2026-10-27 (TestSidecar01, in vivo): ledger full loop validated
+  (park → restock → live quantity refresh x27→x21 → resolve → re-claim);
+  obstruction clearing validated (two mazons builds DONE with leaves in their
+  footprints; zero obstructed failures where 10-22 guaranteed them); dual-
+  agent cycling with clean timeout fallback. Clearing was invisible in logs →
+  shipped a `cleared obstruction` INFO line. Model-composed break_block: zero
+  calls (expected — no gathering goals yet; the P1 motivation gap in action).
+  Detail: setup/session-handoff-2026-10-26 + ledger SEQ-038.
 
 ## Status
 

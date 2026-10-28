@@ -31,16 +31,18 @@ surface** → **break primitive** as slice 1 (10-25).
   substrate for future supply surfaces).
 - **`agents-action-surface-expansion-hands-materials-economy-roadmap` —
   ACTIVE (workflow at PLAN with this initiative active). Slice 1 (break
-  primitive) DONE + verified.** Guarded, tier-gated, LLM-composable breaking:
-  `BreakSupport` (primitives pkg), `break_block` MCP tool with teaching
-  rejects (`needs_tool:<tier>_<kind>`), BUILD executor clears obstructions,
-  sidecar catalog + generic agent-arg injection. Tier-0 instrumentation keeps
-  the board-decision set {claim,rest,say} on purpose.
+  primitive) DONE + verified; slice 1 VALIDATED IN VIVO 2026-10-27** (below).
+  Guarded, tier-gated, LLM-composable breaking: `BreakSupport` (primitives
+  pkg), `break_block` MCP tool with teaching rejects
+  (`needs_tool:<tier>_<kind>`), BUILD executor clears obstructions, sidecar
+  catalog + generic agent-arg injection. Tier-0 instrumentation keeps the
+  board-decision set {claim,rest,say} on purpose.
 - **5 local commits ahead of `origin/main`, NOT pushed** (b55cf87 → 04aa464).
   User decision pending on push.
 - Verification snapshot: **55/55 gametests**, python suite green (bridge/tap/
   tap-import/corpus/decision-probe/calibrate + S0 replay 20/20), `mdocs
-  validate` clean, `./gradlew build` green.
+  validate` clean, `./gradlew build` green. Production snapshot 2026-10-27:
+  ledger loop + obstruction clearing validated in vivo (section below).
 
 ## Reading order for a fresh agent
 
@@ -56,6 +58,34 @@ surface** → **break primitive** as slice 1 (10-25).
    since 10-21; read before writing ANY gametest).
 6. `setup/test-run-protocol-2026-10-20` — live-test recipe (Phase 2 config:
    per-world serverconfig + absolute sidecar command + full JVM restart).
+
+## Live test 2026-10-27 (TestSidecar01) — slice 1 validated in vivo
+
+User live session, two agents (`09330fcb` from 10-22 + a fresh `b3a4115f`),
+sidecar + wire tap running. What production proved:
+
+- **Knowledge ledger, full loop:** `build:mazons:-1,79,3` parked
+  (`blocked_tasks: stone_bricks x27`, visible to the model) → user restocked →
+  quantity **refreshed live to x21** mid-flight → `RESOLVED_RESTOCKED` → task
+  re-claimable, all without re-issuing or spinning.
+- **Obstruction clearing in vivo:** `mazons:0,79,1` and `mazons:2,79,0` went
+  DONE with leaves in their footprints; **zero `obstructed` failures today**
+  (10-22 guaranteed one per leaves encounter). Clearing was invisible in logs
+  (fixed: `cleared obstruction` INFO line, needs a JVM restart to appear).
+- **Dual-agent MCP cycling**, one 180s bonsai timeout → template fallback →
+  clean recovery next cycle.
+- **NOT observed (expected):** the model never composed `break_block` — the
+  ore+pickaxe bait never fired. Nothing in its goal list requires gathering
+  yet; that motivation is exactly what P1 adds. Watch for it after P1.
+
+User-observation refinements (now explained): "leaves were simply not an
+obstacle / got overwritten" = hand-breaking shows no drops and one executor
+pass breaks every leaf cell it passes while placing one brick — from outside
+the cube rises through the leaves. The "missing corner" cube was `-1,79,3`
+mid-oscillation (the demo corner the user kept re-leafing). No pickaxe seen =
+correct (leaves need none). Forensic habit worth keeping: the persisted board
+(`data/siasworkshop_task_board.dat`) distinguishes DONE from FAILED-from-open
+transitions the wire cannot; `.tmp/inspect_board.py` dumps it.
 
 ## Where things stand
 
@@ -85,9 +115,11 @@ surface** → **break primitive** as slice 1 (10-25).
 3. P0.2 deposit/withdraw logistics; then P2 trade/search, P3 decision-layer
    (pattern-tree catalog growth), P4 knowledge entry types
    (SOURCE_DISCOVERED, RECIPE_LEARNED, …).
-4. User-side pending: push the 5 commits; a **live test of the break
-   primitive** (recipe in test-run-protocol Phase 2; watch the model meet
-   `needs_tool` and compose `break_block`).
+4. User-side pending: a **live test of break-block composition after P1**
+   (the 2026-10-27 session validated clearing + ledger; the model-composed
+   `break_block` remains unobserved until gathering goals exist). Push state:
+   everything through 10-26 was pushed (`9cab8c4..83199d2`); the 10-27
+   clear-log observability fix + these docs commit on top.
 
 ## Traps that cost real time (new since 10-21; full list in gametest-notes)
 

@@ -890,6 +890,8 @@ public final class AgentDecisionLoop {
                 if (Config.AGENTS_BREAKING_ENABLED.get() && BreakSupport.canBreak(level, agent, target)) {
                     AgentActivity.working(agent, task, "clearing obstruction");
                     BreakSupport.breakBlock(level, agent, target);
+                    SiasWorkshop.LOGGER.info("[AgentDecisionLoop] agent {} cleared obstruction at {} for {}",
+                            agent.getUUID(), target, task.key());
                     continue;
                 }
                 // Non-replaceable obstruction (natural leaves, a player-placed block): without a
